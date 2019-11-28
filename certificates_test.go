@@ -21,7 +21,7 @@ func TestCertificateParsing(t *testing.T) {
 	pubKey := ed25519.PublicKey([]byte{0x00, 0x42, 0x23, 0x05})
 	cert := &Certificate{
 		Issuer:       "connctd",
-		PublicKey:    pubKey,
+		PubKey:       pubKey,
 		SerialNumber: 12,
 		Signature:    []byte{0x55, 0x42, 0x07},
 		Subject:      "device",
@@ -44,7 +44,7 @@ func TestCreateSelfSignedCert(t *testing.T) {
 		time.Now().Add(time.Minute),
 		[]Extension{})
 	require.NoError(t, err)
-	err = validateCertificate(cert, cert.PublicKey)
+	err = validateCertificate(cert, cert.PubKey)
 	assert.NoError(t, err)
 }
 
@@ -59,7 +59,7 @@ func TestCertPool(t *testing.T) {
 	cert := &Certificate{
 		Extensions:   []Extension{},
 		Issuer:       "root",
-		PublicKey:    pub,
+		PubKey:       pub,
 		SerialNumber: 1,
 		Subject:      "device",
 		Validity:     &Validity{NotBefore: &ZeroTime, NotAfter: &ZeroTime},
@@ -83,7 +83,7 @@ func TestCertPoolValidateSingleCert(t *testing.T) {
 	clientCert := &Certificate{
 		Extensions:   []Extension{},
 		Issuer:       rootCert.Subject,
-		PublicKey:    clientPub,
+		PubKey:       clientPub,
 		SerialNumber: 1,
 		Subject:      "client",
 		Validity:     &Validity{NotBefore: &ZeroTime, NotAfter: &ZeroTime},
@@ -118,7 +118,7 @@ func TestCertPoolValidateUntrustedBundle(t *testing.T) {
 			cert := &Certificate{
 				Extensions:   []Extension{},
 				Issuer:       lastCert.Subject,
-				PublicKey:    pub,
+				PubKey:       pub,
 				SerialNumber: 1,
 				Subject:      fmt.Sprintf("intermediate %d", i),
 				Validity:     &Validity{NotBefore: &ZeroTime, NotAfter: &ZeroTime},
@@ -136,7 +136,7 @@ func TestCertPoolValidateUntrustedBundle(t *testing.T) {
 	clientCert := &Certificate{
 		Extensions:   []Extension{},
 		Issuer:       lastCert.Subject,
-		PublicKey:    clientPub,
+		PubKey:       clientPub,
 		SerialNumber: 1,
 		Subject:      "client",
 		Validity:     &Validity{NotBefore: &ZeroTime, NotAfter: &ZeroTime},
@@ -166,7 +166,7 @@ func TestCertPoolValidateTrustedBundle(t *testing.T) {
 			intermediateStartCert = &Certificate{
 				Subject:      "intermediate 0",
 				Extensions:   []Extension{},
-				PublicKey:    pub,
+				PubKey:       pub,
 				SerialNumber: 1,
 				Issuer:       rootCert.Subject,
 				Validity:     &Validity{NotBefore: &ZeroTime, NotAfter: &ZeroTime},
@@ -182,7 +182,7 @@ func TestCertPoolValidateTrustedBundle(t *testing.T) {
 			cert := &Certificate{
 				Extensions:   []Extension{},
 				Issuer:       lastCert.Subject,
-				PublicKey:    pub,
+				PubKey:       pub,
 				SerialNumber: 1,
 				Subject:      fmt.Sprintf("intermediate %d", i),
 				Validity:     &Validity{NotBefore: &ZeroTime, NotAfter: &ZeroTime},
@@ -200,7 +200,7 @@ func TestCertPoolValidateTrustedBundle(t *testing.T) {
 	clientCert := &Certificate{
 		Extensions:   []Extension{},
 		Issuer:       lastCert.Subject,
-		PublicKey:    clientPub,
+		PubKey:       clientPub,
 		SerialNumber: 1,
 		Subject:      "client",
 		Validity:     &Validity{NotBefore: &ZeroTime, NotAfter: &ZeroTime},

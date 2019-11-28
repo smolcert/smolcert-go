@@ -20,6 +20,6 @@ cert, _, err := SelfSignedCertificate("root",
 		time.Now().Add(time.Minute),
 		[]Extension{})
 require.NoError(t, err)
-err = validateCertificate(cert, cert.PublicKey)
+err = validateCertificate(cert, cert.PubKey)
 assert.NoError(t, err)
 ```

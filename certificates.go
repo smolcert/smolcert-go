@@ -51,11 +51,11 @@ func (c *CertPool) Validate(cert *Certificate) error {
 		return errors.New("certificate is not signed by a known issuer")
 	}
 	// Validate the issuer cert, might be invalid too (expired etc.)
-	if err := validateCertificate(issuerCert, issuerCert.PublicKey); err != nil {
+	if err := validateCertificate(issuerCert, issuerCert.PubKey); err != nil {
 		return errors.New("Error validating issuing root certificate: " + err.Error())
 	}
 
-	return validateCertificate(cert, issuerCert.PublicKey)
+	return validateCertificate(cert, issuerCert.PubKey)
 }
 
 // ValidateBundle validates a given bundle of certificates. It tries to build a chain of certificates
@@ -85,7 +85,7 @@ func (c *CertPool) ValidateBundle(certBundle []*Certificate) (clientCert *Certif
 	}
 
 	if clientIssuer, found := subjectMap[clientCert.Issuer]; found {
-		if err := validateCertificate(clientCert, clientIssuer.PublicKey); err != nil {
+		if err := validateCertificate(clientCert, clientIssuer.PubKey); err != nil {
 			return nil, err
 		}
 	} else {
@@ -100,7 +100,7 @@ func (c *CertPool) ValidateBundle(certBundle []*Certificate) (clientCert *Certif
 	// Validate the chain of intermediate certs
 	for _, cert := range intermediateCerts {
 		if issuerCert, exists := subjectMap[cert.Issuer]; exists {
-			if err := validateCertificate(cert, issuerCert.PublicKey); err != nil {
+			if err := validateCertificate(cert, issuerCert.PubKey); err != nil {
 				return nil, errors.New("Validation error in chain of intermediate certificates")
 			}
 		} else {
@@ -156,7 +156,7 @@ type Certificate struct {
 	// NotBefore and NotAfter might be 0 to indicate to be ignored during validation
 	Validity   *Validity         `codec:"validity,omitempty"`
 	Subject    string            `codec:"subject"`
-	PublicKey  ed25519.PublicKey `codec:"public_key"`
+	PubKey     ed25519.PublicKey `codec:"public_key"`
 	Extensions []Extension       `codec:"extensions"`
 	Signature  []byte            `codec:"signature"`
 }
@@ -165,7 +165,7 @@ type Certificate struct {
 // parts of the certificate, but need to continue working with an unaltered original.
 func (c *Certificate) Copy() *Certificate {
 	// Convert the public key to a byte slice and create a copy of this slice
-	p2 := append([]byte{}, []byte(c.PublicKey)...)
+	p2 := append([]byte{}, []byte(c.PubKey)...)
 	c2 := &Certificate{
 		SerialNumber: c.SerialNumber,
 		Issuer:       c.Issuer,
@@ -175,7 +175,7 @@ func (c *Certificate) Copy() *Certificate {
 		},
 		Subject: c.Subject,
 		// Reconstruct a public key from the byte slice copy we have created above
-		PublicKey:  ed25519.PublicKey(p2),
+		PubKey:     ed25519.PublicKey(p2),
 		Extensions: append([]Extension{}, c.Extensions...),
 		Signature:  append([]byte{}, c.Signature...),
 	}

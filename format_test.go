@@ -21,7 +21,7 @@ func TestValidGoCertificateFormat(t *testing.T) {
 	pubKey := ed25519.PublicKey([]byte{0x00, 0x42, 0x23, 0x05})
 	cert := &Certificate{
 		Issuer:       "connctd",
-		PublicKey:    pubKey,
+		PubKey:       pubKey,
 		SerialNumber: 12,
 		Signature:    []byte{0x55, 0x42, 0x07},
 		Subject:      "device",

@@ -45,7 +45,7 @@ func SelfSignedCertificate(subject string,
 		Issuer:       subject,
 		Validity:     validity,
 		Subject:      subject,
-		PublicKey:    pub,
+		PubKey:       pub,
 		Extensions:   extensions,
 		Signature:    nil,
 	}

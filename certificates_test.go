@@ -39,7 +39,10 @@ func TestCertificateParsing(t *testing.T) {
 }
 
 func TestCreateSelfSignedCert(t *testing.T) {
-	cert, _, err := SelfSignedCertificate("root", time.Time{}, time.Time{}, []Extension{})
+	cert, _, err := SelfSignedCertificate("root",
+		time.Now().Add(time.Minute*-1),
+		time.Now().Add(time.Minute),
+		[]Extension{})
 	require.NoError(t, err)
 	err = validateCertificate(cert, cert.PublicKey)
 	assert.NoError(t, err)

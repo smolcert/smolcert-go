@@ -10,3 +10,16 @@ than X.509. The certificate format is specified as [CDDL](https://tools.ietf.org
 Currently exist implementations in go and Rust, where the go implementation is the more complete,
 with support for easy certificate creation, signing and validation. The Rust implementation currently
 only supports serialization and deserialization of certificates, but no signing, verification etc.
+
+## Example
+
+```go
+// Create a self signed certificate (i.e. as root certificate)
+cert, _, err := SelfSignedCertificate("root",
+		time.Now().Add(time.Minute*-1),
+		time.Now().Add(time.Minute),
+		[]Extension{})
+require.NoError(t, err)
+err = validateCertificate(cert, cert.PublicKey)
+assert.NoError(t, err)
+```

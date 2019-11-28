@@ -229,3 +229,16 @@ func TestCopyCertificate(t *testing.T) {
 	assert.Len(t, c1.Signature, 64)
 	assert.Len(t, c2.Signature, 0)
 }
+
+func TestCreateSignedCertificate(t *testing.T) {
+	rootCert, rootKey, err := SelfSignedCertificate("root",
+		time.Now(), time.Now().Add(time.Minute), []Extension{})
+	require.NoError(t, err)
+
+	clientCert, _, err := SignedCertificate("client1",
+		12, time.Now(), time.Now().Add(time.Minute), []Extension{}, rootKey, rootCert.Subject)
+	require.NoError(t, err)
+
+	rootCertPool := NewCertPool(rootCert)
+	assert.NoError(t, rootCertPool.Validate(clientCert))
+}

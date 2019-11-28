@@ -23,3 +23,11 @@ require.NoError(t, err)
 err = validateCertificate(cert, cert.PubKey)
 assert.NoError(t, err)
 ```
+
+## Running tests
+
+`go test` will only run tests which only depend on go. To test more you need specify tags for the test
+command. If you want to also run the tests for the rust based implementation along with the go tests
+you need to use the `rust` tag (`go test -tags rust`). If you want to verify that the serilization
+implementation generates valid data you need to specify the `cddltest` tag (`go test -tags cddltest`).
+Of course tags can be combined (`go test -tags rust,cddltest`).

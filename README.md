@@ -15,7 +15,7 @@ only supports serialization and deserialization of certificates, but no signing,
 
 ```go
 // Create a self signed certificate (i.e. as root certificate)
-cert, _, err := SelfSignedCertificate("root",
+cert, privateKey, err := SelfSignedCertificate("root",
 		time.Now().Add(time.Minute*-1),
 		time.Now().Add(time.Minute),
 		[]Extension{})

@@ -161,6 +161,12 @@ type Certificate struct {
 	Signature  []byte            `codec:"signature"`
 }
 
+// PublicKey returns the public key of this certificate as byte slice.
+// Implements the github.com/connctd/noise.Identity interface.
+func (c *Certificate) PublicKey() []byte {
+	return c.PubKey
+}
+
 // Copy creates a deep copy of this certificate. This can be useful for operations where we need to change
 // parts of the certificate, but need to continue working with an unaltered original.
 func (c *Certificate) Copy() *Certificate {

@@ -1,8 +1,11 @@
 //#![no_std]
 
-//extern crate ed25519_dalek;
 extern crate serde;
 extern crate serde_cbor;
+
+extern crate rand;
+extern crate ed25519_dalek;
+extern crate sha2;
 
 use serde::de;
 use serde::ser::{SerializeSeq, Serializer};
@@ -10,6 +13,10 @@ use serde::ser::{SerializeSeq, Serializer};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::vec::Vec;
+
+use ed25519_dalek::{Keypair, Signature, SecretKey, PublicKey, SignatureError};
+use rand::rngs::{OsRng};
+use sha2::Sha512;
 
 #[derive(Debug)]
 pub struct Error {
@@ -19,7 +26,7 @@ pub struct Error {
 #[derive(Debug)]
 pub enum ErrorCode {
   Serialization(serde_cbor::error::Error),
-  Signature,
+  Signature(SignatureError),
 }
 
 impl From<serde_cbor::error::Error> for Error {
@@ -49,19 +56,25 @@ impl Certificate {
     issuer: &'a str,
     validity: Validity,
     subject: &'a str,
-    pub_key: &'a [u8],
     extensions: Vec<Extension>,
-    signature: &'a [u8],
-  ) -> Self {
-    Certificate {
+    certKeypair: Keypair,
+    signingKey: Keypair,
+  ) -> Result<Self> {
+    //let mut csprng: OsRng = OsRng::new().unwrap();
+    //let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
+    let mut cert = Certificate {
       serial_number,
       issuer: issuer.to_owned(),
       validity,
       subject: subject.to_owned(),
-      public_key: Bytes::from_slice(&pub_key),
+      public_key: Bytes::from_slice(&certKeypair.public.to_bytes()),
       extensions,
-      signature: Bytes::from_slice(&signature),
-    }
+      signature: Bytes::from_slice(&[0;0][..]),
+    };
+
+    let cert_bytes = cert.to_vec()?;
+    cert.signature = Bytes::from_slice(&signingKey.sign::<Sha512>(&cert_bytes[..]).to_bytes()[..]);
+    Ok(cert)
   }
 
   fn to_vec(&self) -> Result<Vec<u8>> {
@@ -348,18 +361,18 @@ mod tests {
     let signature: &[u8] = &[4, 5, 6, 7];
     let extensions: Vec<Extension> = vec![];
 
-    let cert = Certificate::new(
-      12,
-      "fooissuer",
-      Validity {
+    let cert = Certificate{
+      serial_number: 12,
+      issuer: "fooissuer".to_owned(),
+      validity: Validity {
         not_after: 13,
         not_before: 2,
       },
-      "barsubject",
-      &pub_key,
+      subject: "barsubject".to_owned(),
+      public_key: Bytes::from_slice(&pub_key),
       extensions,
-      &signature,
-    );
+      signature: Bytes::from_slice(&signature),
+    };
 
     let res = cert.to_vec();
     assert!(!res.is_err());
@@ -376,18 +389,18 @@ mod tests {
     let signature: &[u8] = &[0x55, 0x42, 0x07];
     let extensions: Vec<Extension> = vec![];
 
-    let cert = Certificate::new(
-      12,
-      "connctd",
-      Validity {
+    let cert = Certificate{
+      serial_number: 12,
+      issuer: "connctd".to_owned(),
+      validity: Validity {
         not_after: 1_557_356_582,
         not_before: 1_557_270_182,
       },
-      "device",
-      pub_key,
+      subject: "device".to_owned(),
+      public_key: Bytes::from_slice(&pub_key),
       extensions,
-      signature,
-    );
+      signature: Bytes::from_slice(&signature),
+    };
 
     let res = cert.to_vec();
     assert!(res.is_ok());

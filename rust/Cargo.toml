@@ -8,5 +8,5 @@ edition = "2018"
 serde = { version = "1.0", features = ["derive"] }
 serde_cbor = {version="0.10", default-features=true}
 rand = "*"
-rand_os = "*"
+sha2 = "*"
 ed25519-dalek = {version="0.9.1", features=["serde"]}

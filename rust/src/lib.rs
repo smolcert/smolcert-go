@@ -37,9 +37,17 @@ impl From<serde_cbor::error::Error> for Error {
   }
 }
 
+impl From<SignatureError> for Error {
+  fn from(err: SignatureError) -> Error {
+    Error{
+      code: ErrorCode::Signature(err),
+    }
+  }
+}
+
 type Result<T> = core::result::Result<T, Error>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Certificate {
   pub serial_number: u64,
   pub issuer: String,
@@ -57,11 +65,9 @@ impl Certificate {
     validity: Validity,
     subject: &'a str,
     extensions: Vec<Extension>,
-    certKeypair: Keypair,
-    signingKey: Keypair,
+    certKeypair: &Keypair,
+    signingKey: &Keypair,
   ) -> Result<Self> {
-    //let mut csprng: OsRng = OsRng::new().unwrap();
-    //let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
     let mut cert = Certificate {
       serial_number,
       issuer: issuer.to_owned(),
@@ -77,6 +83,17 @@ impl Certificate {
     Ok(cert)
   }
 
+  pub fn new_self_signed<'a>(
+    serial_number: u64,
+    issuer: &'a str,
+    validity: Validity,
+    subject: &'a str,
+    extensions: Vec<Extension>,
+    certKeypair: &Keypair,
+  ) -> Result<Self> {
+    Certificate::new(serial_number,issuer,validity,subject,extensions, certKeypair, certKeypair)
+  }
+
   fn to_vec(&self) -> Result<Vec<u8>> {
     let res_vec = serde_cbor::ser::to_vec_packed(self)?;
     Ok(res_vec)
@@ -85,6 +102,18 @@ impl Certificate {
   fn from_vec(in_data: &[u8]) -> Result<Certificate> {
     let cert = serde_cbor::from_slice(in_data)?;
     Ok(cert)
+  }
+
+  fn verify_signature(&self, signingKey: &PublicKey) -> Result<()> {
+    let mut cert_copy = self.clone();
+    cert_copy.signature = Bytes::from_slice(&[0;0][..]);
+    let cert_bytes = cert_copy.to_vec()?;
+    let sig = Signature::from_bytes(&self.signature.data[..])?;
+    let sig_res = signingKey.verify::<Sha512>(&cert_bytes[..], &sig);
+    match sig_res {
+      Ok(v) => Ok(v),
+      Err(e) => Err(Error::from(e)),
+    }
   }
 }
 
@@ -166,7 +195,7 @@ impl<'de> de::Deserialize<'de> for Certificate {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Validity {
   pub not_before: u64,
   pub not_after: u64,
@@ -226,7 +255,7 @@ impl<'de> de::Deserialize<'de> for Validity {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Extension {
   pub oid: u64,
   pub critical: bool,
@@ -289,7 +318,7 @@ impl<'de> Deserialize<'de> for Extension {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Bytes {
   data: Vec<u8>,
 }
@@ -376,6 +405,19 @@ mod tests {
 
     let res = cert.to_vec();
     assert!(!res.is_err());
+  }
+
+  #[test]
+  fn self_signed() {
+    let mut csprng: OsRng = OsRng::new().unwrap();
+    let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
+    let extensions: Vec<Extension> = vec![];
+
+    let cert = Certificate::new_self_signed(12, "connctd self signed", Validity {
+      not_after: 13,
+      not_before: 2,
+    }, "subject self", extensions, &keypair).unwrap();
+    cert.verify_signature(&keypair.public).unwrap();
   }
 
   static EXPECTED_CERT_BYTES: &[u8] = &[

@@ -31,3 +31,7 @@ command. If you want to also run the tests for the rust based implementation alo
 you need to use the `rust` tag (`go test -tags rust`). If you want to verify that the serilization
 implementation generates valid data you need to specify the `cddltest` tag (`go test -tags cddltest`).
 Of course tags can be combined (`go test -tags rust,cddltest`).
+
+If you want to validate that the implementations generate valid CBOR you need to install the
+[`cddl`](https://rubygems.org/gems/cddl/versions/0.8.5?locale=de) tool.  This called during
+tests behind the `cddltest` flag.

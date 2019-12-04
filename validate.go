@@ -1,5 +1,13 @@
 package smolcert
 
+import(
+	"fmt"
+	"errors"
+	"time"
+
+	"golang.org/x/crypto/ed25519"
+)
+
 // CertPool is a pool of root certificates which can be used to validate a certificate
 type CertPool map[string]*Certificate
 
@@ -88,8 +96,7 @@ func (c *CertPool) ValidateBundle(certBundle []*Certificate) (clientCert *Certif
 	return clientCert, nil
 }
 
-func validateCertificate(origCert *Certificate, pubKey ed25519.PublicKey) error {
-	cert := origCert.Copy()
+func validateValidity(cert *Certificate) error {
 	if !cert.Validity.NotBefore.IsZero() {
 		notBefore := cert.Validity.NotBefore.StdTime()
 		if time.Now().Before(notBefore) {
@@ -103,10 +110,32 @@ func validateCertificate(origCert *Certificate, pubKey ed25519.PublicKey) error 
 			return errors.New("certificate is not valid anymore")
 		}
 	}
+	return nil
+}
+
+func checkForDoubleExtensions(cert *Certificate) error {
+	seen := make(map[uint64]bool)
+
+	for _, ext := range cert.Extensions {
+		if seen[ext.OID] {
+			return fmt.Errorf("This certificate contains a repeated extension (OID: %X) which is invalid")
+		}
+		seen[ext.OID] = true
+	}
+	return nil
+}
+
+func validateCertificate(origCert *Certificate, pubKey ed25519.PublicKey) error {
+	cert := origCert.Copy()
+	if err := validateValidity(cert); err != nil {
+		return err
+	}
+	if err := checkForDoubleExtensions(cert); err != nil {
+		return err
+	}
 	sig := cert.Signature
 
 	cert.Signature = nil
-	// FIXME, we need a deep copy of this certificate!!!!
 	certBytes, err := cert.Bytes()
 
 	if err != nil {

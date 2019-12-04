@@ -10,7 +10,6 @@ package smolcert
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"time"
 

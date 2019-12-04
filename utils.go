@@ -26,6 +26,7 @@ func SignedCertificate(subject string, serialNumber uint64, notBefore, notAfter 
 	if extensions == nil {
 		extensions = []Extension{}
 	}
+
 	if notBefore.IsZero() {
 		validity.NotBefore = &ZeroTime
 	} else {
@@ -61,6 +62,22 @@ func SelfSignedCertificate(subject string,
 	if extensions == nil {
 		extensions = []Extension{}
 	}
+	var keyUsageExtension *Extension
+	for _, ext := range extensions {
+		if ext.OID == OIDKeyUsage {
+			keyUsageExtension = &ext
+			break
+		}
+	}
+	if keyUsageExtension == nil {
+		keyUsageExtension = &Extension{
+			OID:      OIDKeyUsage,
+			Critical: true,
+			Value:    KeyUsageSignCert.ToBytes(),
+		}
+	}
+	extensions = append(extensions, *keyUsageExtension)
+
 	if notBefore.IsZero() {
 		validity.NotBefore = &ZeroTime
 	} else {

@@ -1,8 +1,8 @@
 package smolcert
 
-import(
-	"fmt"
+import (
 	"errors"
+	"fmt"
 	"time"
 
 	"golang.org/x/crypto/ed25519"
@@ -15,6 +15,10 @@ type CertPool map[string]*Certificate
 func NewCertPool(rootCerts ...*Certificate) *CertPool {
 	p := make(CertPool)
 	for _, c := range rootCerts {
+		if err := RequiresExtension(c, OIDKeyUsage, ExpectKeyUsage(KeyUsageSignCert)); err != nil {
+			// Ignore certificates which do not specify to be used to sign certificates silently
+			continue
+		}
 		p[c.Subject] = c
 	}
 	return &p
@@ -118,7 +122,7 @@ func checkForDoubleExtensions(cert *Certificate) error {
 
 	for _, ext := range cert.Extensions {
 		if seen[ext.OID] {
-			return fmt.Errorf("This certificate contains a repeated extension (OID: %X) which is invalid")
+			return fmt.Errorf("This certificate contains a repeated extension (OID: %X) which is invalid", ext.OID)
 		}
 		seen[ext.OID] = true
 	}

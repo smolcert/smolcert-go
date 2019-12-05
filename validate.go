@@ -101,17 +101,17 @@ func (c *CertPool) ValidateBundle(certBundle []*Certificate) (clientCert *Certif
 }
 
 func validateValidity(cert *Certificate) error {
+	nowUnix := time.Now().Unix()
 	if !cert.Validity.NotBefore.IsZero() {
-		notBefore := cert.Validity.NotBefore.StdTime()
-		if time.Now().Before(notBefore) {
-			return errors.New("certificate can't be valid yet")
+		if int64(cert.Validity.NotBefore) > nowUnix {
+			return fmt.Errorf("certificate is not valid before %s (notBefore %d, now %d)",
+				cert.Validity.NotBefore.StdTime().Format(time.RFC3339), cert.Validity.NotBefore, nowUnix)
 		}
 	}
 
 	if !cert.Validity.NotAfter.IsZero() {
-		notAfter := cert.Validity.NotAfter.StdTime()
-		if time.Now().After(notAfter) {
-			return errors.New("certificate is not valid anymore")
+		if int64(cert.Validity.NotAfter) < nowUnix {
+			return fmt.Errorf("certificate is not valid since %s", cert.Validity.NotAfter.StdTime().Format(time.RFC3339))
 		}
 	}
 	return nil

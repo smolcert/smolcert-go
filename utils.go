@@ -7,6 +7,22 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+func ensureExtension(extensions []Extension, extp Extension) []Extension {
+	found := false
+	for _, ext := range extensions {
+		if ext.OID == extp.OID {
+			ext.Critical = extp.Critical
+			ext.Value = extp.Value
+			found = true
+			break
+		}
+	}
+	if !found {
+		extensions = append(extensions, extp)
+	}
+	return extensions
+}
+
 // SignCertificate takes a certificate, removes the signature and creates a new signature with the given key
 func SignCertificate(cert *Certificate, priv ed25519.PrivateKey) (*Certificate, error) {
 	cert.Signature = nil
@@ -16,6 +32,28 @@ func SignCertificate(cert *Certificate, priv ed25519.PrivateKey) (*Certificate, 
 	}
 	cert.Signature = ed25519.Sign(priv, certBytes)
 	return cert, nil
+}
+
+// ClientCertificate is a convenience function to create a valid client certificate
+func ClientCertificate(subject string, serialNumber uint64, notBefore, notAfter time.Time,
+	extensions []Extension, rootKey ed25519.PrivateKey, issuer string) (*Certificate, ed25519.PrivateKey, error) {
+	extensions = ensureExtension(extensions, Extension{
+		OID:      OIDKeyUsage,
+		Critical: true,
+		Value:    KeyUsageClientIdentification.ToBytes(),
+	})
+	return SignedCertificate(subject, serialNumber, notBefore, notAfter, extensions, rootKey, issuer)
+}
+
+// ServerCertificate is a convenience function to create a valid server certificate
+func ServerCertificate(subject string, serialNumber uint64, notBefore, notAfter time.Time,
+	extensions []Extension, rootKey ed25519.PrivateKey, issuer string) (*Certificate, ed25519.PrivateKey, error) {
+	extensions = ensureExtension(extensions, Extension{
+		OID:      OIDKeyUsage,
+		Critical: true,
+		Value:    KeyUsageServerIdentification.ToBytes(),
+	})
+	return SignedCertificate(subject, serialNumber, notBefore, notAfter, extensions, rootKey, issuer)
 }
 
 // SignedCertificate creates a new certificate signed with the specified rooKey and issuer.
@@ -28,12 +66,12 @@ func SignedCertificate(subject string, serialNumber uint64, notBefore, notAfter 
 	}
 
 	if notBefore.IsZero() {
-		validity.NotBefore = &ZeroTime
+		validity.NotBefore = ZeroTime
 	} else {
 		validity.NotBefore = NewTime(notBefore)
 	}
 	if notAfter.IsZero() {
-		validity.NotAfter = &ZeroTime
+		validity.NotAfter = ZeroTime
 	} else {
 		validity.NotAfter = NewTime(notAfter)
 	}
@@ -62,29 +100,19 @@ func SelfSignedCertificate(subject string,
 	if extensions == nil {
 		extensions = []Extension{}
 	}
-	var keyUsageExtension *Extension
-	for _, ext := range extensions {
-		if ext.OID == OIDKeyUsage {
-			keyUsageExtension = &ext
-			break
-		}
-	}
-	if keyUsageExtension == nil {
-		keyUsageExtension = &Extension{
-			OID:      OIDKeyUsage,
-			Critical: true,
-			Value:    KeyUsageSignCert.ToBytes(),
-		}
-	}
-	extensions = append(extensions, *keyUsageExtension)
+	extensions = ensureExtension(extensions, Extension{
+		OID:      OIDKeyUsage,
+		Critical: true,
+		Value:    KeyUsageSignCert.ToBytes(),
+	})
 
 	if notBefore.IsZero() {
-		validity.NotBefore = &ZeroTime
+		validity.NotBefore = ZeroTime
 	} else {
 		validity.NotBefore = NewTime(notBefore)
 	}
 	if notAfter.IsZero() {
-		validity.NotAfter = &ZeroTime
+		validity.NotAfter = ZeroTime
 	} else {
 		validity.NotAfter = NewTime(notAfter)
 	}

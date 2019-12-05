@@ -83,20 +83,20 @@ type Time int64
 var ZeroTime = Time(0)
 
 // NewTime creates a new Time from a given time.Time with second precision
-func NewTime(now time.Time) *Time {
+func NewTime(now time.Time) Time {
 	unix := now.Unix()
 	t := Time(unix)
-	return &t
+	return t
 }
 
 // StdTime returns a time.Time with second precision
-func (t *Time) StdTime() time.Time {
-	return time.Unix(int64(*t), 0)
+func (t Time) StdTime() time.Time {
+	return time.Unix(int64(t), 0).Local()
 }
 
 // IsZero is true if this is a zero time
-func (t *Time) IsZero() bool {
-	return t == nil || int64(*t) == 0
+func (t Time) IsZero() bool {
+	return int64(t) == 0
 }
 
 // Validity represents the time constrained validity of a Certificate.
@@ -104,8 +104,8 @@ func (t *Time) IsZero() bool {
 type Validity struct {
 	_struct interface{} `codec:"-,toarray"`
 
-	NotBefore *Time `codec:"notBefore"`
-	NotAfter  *Time `codec:"notAfter"`
+	NotBefore Time `codec:"notBefore"`
+	NotAfter  Time `codec:"notAfter"`
 }
 
 // Parse parses a Certificate from an io.Reader

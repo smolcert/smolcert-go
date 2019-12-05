@@ -35,7 +35,7 @@ func TestCertificateParsing(t *testing.T) {
 	require.NotZero(t, cert2)
 
 	assert.EqualValues(t, cert, cert2)
-	assert.EqualValues(t, notAfter.Unix(), int64(*cert2.Validity.NotAfter))
+	assert.EqualValues(t, notAfter.Unix(), int64(cert2.Validity.NotAfter))
 }
 
 func TestCreateSelfSignedCert(t *testing.T) {
@@ -62,7 +62,7 @@ func TestCertPool(t *testing.T) {
 		PubKey:       pub,
 		SerialNumber: 1,
 		Subject:      "device",
-		Validity:     &Validity{NotBefore: &ZeroTime, NotAfter: &ZeroTime},
+		Validity:     &Validity{NotBefore: ZeroTime, NotAfter: ZeroTime},
 	}
 	cert, err = SignCertificate(cert, rootPriv)
 	require.NoError(t, err)
@@ -86,7 +86,7 @@ func TestCertPoolValidateSingleCert(t *testing.T) {
 		PubKey:       clientPub,
 		SerialNumber: 1,
 		Subject:      "client",
-		Validity:     &Validity{NotBefore: &ZeroTime, NotAfter: &ZeroTime},
+		Validity:     &Validity{NotBefore: ZeroTime, NotAfter: ZeroTime},
 	}
 	clientCert, err = SignCertificate(clientCert, rootKey)
 	require.NoError(t, err)
@@ -121,7 +121,7 @@ func TestCertPoolValidateUntrustedBundle(t *testing.T) {
 				PubKey:       pub,
 				SerialNumber: 1,
 				Subject:      fmt.Sprintf("intermediate %d", i),
-				Validity:     &Validity{NotBefore: &ZeroTime, NotAfter: &ZeroTime},
+				Validity:     &Validity{NotBefore: ZeroTime, NotAfter: ZeroTime},
 			}
 			cert, err = SignCertificate(cert, lastPrivKey)
 			require.NoError(t, err)
@@ -139,7 +139,7 @@ func TestCertPoolValidateUntrustedBundle(t *testing.T) {
 		PubKey:       clientPub,
 		SerialNumber: 1,
 		Subject:      "client",
-		Validity:     &Validity{NotBefore: &ZeroTime, NotAfter: &ZeroTime},
+		Validity:     &Validity{NotBefore: ZeroTime, NotAfter: ZeroTime},
 	}
 	clientCert, err = SignCertificate(clientCert, lastPrivKey)
 	require.NoError(t, err)
@@ -169,7 +169,7 @@ func TestCertPoolValidateTrustedBundle(t *testing.T) {
 				PubKey:       pub,
 				SerialNumber: 1,
 				Issuer:       rootCert.Subject,
-				Validity:     &Validity{NotBefore: &ZeroTime, NotAfter: &ZeroTime},
+				Validity:     &Validity{NotBefore: ZeroTime, NotAfter: ZeroTime},
 			}
 			intermediateStartCert, err = SignCertificate(intermediateStartCert, rootPriv)
 			require.NoError(t, err)
@@ -185,7 +185,7 @@ func TestCertPoolValidateTrustedBundle(t *testing.T) {
 				PubKey:       pub,
 				SerialNumber: 1,
 				Subject:      fmt.Sprintf("intermediate %d", i),
-				Validity:     &Validity{NotBefore: &ZeroTime, NotAfter: &ZeroTime},
+				Validity:     &Validity{NotBefore: ZeroTime, NotAfter: ZeroTime},
 			}
 			cert, err = SignCertificate(cert, lastPrivKey)
 			require.NoError(t, err)
@@ -203,7 +203,7 @@ func TestCertPoolValidateTrustedBundle(t *testing.T) {
 		PubKey:       clientPub,
 		SerialNumber: 1,
 		Subject:      "client",
-		Validity:     &Validity{NotBefore: &ZeroTime, NotAfter: &ZeroTime},
+		Validity:     &Validity{NotBefore: ZeroTime, NotAfter: ZeroTime},
 	}
 	clientCert, err = SignCertificate(clientCert, lastPrivKey)
 	require.NoError(t, err)
@@ -231,14 +231,25 @@ func TestCopyCertificate(t *testing.T) {
 }
 
 func TestCreateSignedCertificate(t *testing.T) {
-	rootCert, rootKey, err := SelfSignedCertificate("root",
-		time.Now(), time.Now().Add(time.Minute), []Extension{})
-	require.NoError(t, err)
+	now := time.Now()
+	notBefore := now.Add(time.Minute * -1)
+	notAfter := now.Add(time.Hour * 5)
 
-	clientCert, _, err := SignedCertificate("client1",
-		12, time.Now(), time.Now().Add(time.Minute), []Extension{}, rootKey, rootCert.Subject)
+	notBeforeUnix := notBefore.Unix()
+	fmt.Printf("NotBefore in Unix: %d\n", notBeforeUnix)
+	rootCert, rootKey, err := SelfSignedCertificate("root",
+		notBefore, notAfter, []Extension{})
 	require.NoError(t, err)
 
 	rootCertPool := NewCertPool(rootCert)
+
+	clientCert, _, err := ClientCertificate("client1",
+		12, notBefore, notAfter, []Extension{}, rootKey, rootCert.Subject)
+	require.NoError(t, err)
 	assert.NoError(t, rootCertPool.Validate(clientCert))
+
+	serverCert, _, err := ServerCertificate("server1",
+		13, notBefore, notAfter, []Extension{}, rootKey, rootCert.Subject)
+	require.NoError(t, err)
+	assert.NoError(t, rootCertPool.Validate(serverCert))
 }

@@ -35,7 +35,10 @@ func (c *CertPool) Validate(cert *Certificate) error {
 	}
 	// Validate the issuer cert, might be invalid too (expired etc.)
 	if err := validateCertificate(issuerCert, issuerCert.PubKey); err != nil {
-		return errors.New("Error validating issuing root certificate: " + err.Error())
+		return fmt.Errorf("Error validating issuing root certificate: %w", err)
+	}
+	if err := RequiresExtension(issuerCert, OIDKeyUsage, ExpectKeyUsage(KeyUsageSignCert)); err != nil {
+		return fmt.Errorf("Trusted root certificates need to have the KeyUsage SignCert: %w", err)
 	}
 
 	return validateCertificate(cert, issuerCert.PubKey)

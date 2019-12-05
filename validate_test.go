@@ -1,10 +1,13 @@
 package smolcert
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"crypto/rand"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/ed25519"
 )
 
 func TestExtensionDubletteInRootCert(t *testing.T) {
@@ -70,4 +73,39 @@ func TestSneakKeyUsageInClientCert(t *testing.T) {
 
 	certPool := NewCertPool(rootCert)
 	assert.Error(t, certPool.Validate(clientCert))
+}
+
+func TestCertPoolRequiresCorrectKeyUsage(t *testing.T) {
+	now := time.Now()
+	notBefore := now.Add(time.Minute * -1)
+	notAfter := now.Add(time.Hour)
+
+	rootPub, rootKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	rootCert := &Certificate{
+		SerialNumber: 1,
+		Issuer:       "EvilMe",
+		Validity: &Validity{
+			NotBefore: NewTime(notBefore),
+			NotAfter:  NewTime(notAfter),
+		},
+		Subject: "EvilMe",
+		Extensions: []Extension{
+			{
+				OID:      OIDKeyUsage,
+				Critical: false,
+				Value:    KeyUsageServerIdentification.ToBytes(),
+			},
+		},
+		PubKey: rootPub,
+	}
+
+	rootCert, err = SignCertificate(rootCert, rootKey)
+	require.NoError(t, err)
+
+	clientCert, _, err := ClientCertificate("trustfulClient", 42, notBefore, notAfter, nil, rootKey, rootCert.Subject)
+	require.NoError(t, err)
+
+	pool := NewCertPool(rootCert)
+	assert.Error(t, pool.Validate(clientCert))
 }

@@ -56,9 +56,9 @@ var (
 	ErrorExtensionNotFound = errors.New("Required extension not found")
 )
 
-type ValidateExtenstion func(critical bool, val []byte) error
+type ValidateExtension func(critical bool, val []byte) error
 
-func ExpectKeyUsage(expectedKeyUsage KeyUsage) ValidateExtenstion {
+func ExpectKeyUsage(expectedKeyUsage KeyUsage) ValidateExtension {
 	return func(critical bool, val []byte) error {
 		if !critical {
 			return errors.New("KeyUsage extension always needs to be declared critical")
@@ -74,7 +74,7 @@ func ExpectKeyUsage(expectedKeyUsage KeyUsage) ValidateExtenstion {
 	}
 }
 
-func RequiresExtension(cert *Certificate, oid uint64, validate ValidateExtenstion) error {
+func RequiresExtension(cert *Certificate, oid uint64, validate ValidateExtension) error {
 	for _, ext := range cert.Extensions {
 		if ext.OID == oid {
 			return validate(ext.Critical, ext.Value)

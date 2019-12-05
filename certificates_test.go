@@ -235,8 +235,6 @@ func TestCreateSignedCertificate(t *testing.T) {
 	notBefore := now.Add(time.Minute * -1)
 	notAfter := now.Add(time.Hour * 5)
 
-	notBeforeUnix := notBefore.Unix()
-	fmt.Printf("NotBefore in Unix: %d\n", notBeforeUnix)
 	rootCert, rootKey, err := SelfSignedCertificate("root",
 		notBefore, notAfter, []Extension{})
 	require.NoError(t, err)

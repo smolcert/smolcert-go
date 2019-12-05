@@ -85,6 +85,9 @@ func (c *CertPool) ValidateBundle(certBundle []*Certificate) (clientCert *Certif
 	var chainTopCert *Certificate
 	// Validate the chain of intermediate certs
 	for _, cert := range intermediateCerts {
+		if err := RequiresExtension(cert, OIDKeyUsage, ExpectKeyUsage(KeyUsageSignCert)); err != nil {
+			return nil, fmt.Errorf("Intermediate certificate (subject '%s', does not possess KeyUsage SignCert: %w", cert.Subject, err)
+		}
 		if issuerCert, exists := subjectMap[cert.Issuer]; exists {
 			if err := validateCertificate(cert, issuerCert.PubKey); err != nil {
 				return nil, errors.New("Validation error in chain of intermediate certificates")

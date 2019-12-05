@@ -155,6 +155,14 @@ func TestCertPoolValidateTrustedBundle(t *testing.T) {
 	rootCert, rootPriv, err := SelfSignedCertificate("testroot", time.Time{}, time.Time{}, []Extension{})
 	require.NoError(t, err)
 
+	intermediateExtensions := []Extension{
+		{
+			OID:      OIDKeyUsage,
+			Critical: true,
+			Value:    KeyUsageSignCert.ToBytes(),
+		},
+	}
+
 	var certChain []*Certificate
 	var intermediateStartCert *Certificate
 	var lastCert *Certificate
@@ -165,7 +173,7 @@ func TestCertPoolValidateTrustedBundle(t *testing.T) {
 			require.NoError(t, err)
 			intermediateStartCert = &Certificate{
 				Subject:      "intermediate 0",
-				Extensions:   []Extension{},
+				Extensions:   intermediateExtensions,
 				PubKey:       pub,
 				SerialNumber: 1,
 				Issuer:       rootCert.Subject,
@@ -180,7 +188,7 @@ func TestCertPoolValidateTrustedBundle(t *testing.T) {
 			pub, priv, err := ed25519.GenerateKey(rand.Reader)
 			require.NoError(t, err)
 			cert := &Certificate{
-				Extensions:   []Extension{},
+				Extensions:   intermediateExtensions,
 				Issuer:       lastCert.Subject,
 				PubKey:       pub,
 				SerialNumber: 1,

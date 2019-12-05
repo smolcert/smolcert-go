@@ -11,5 +11,8 @@ GO_TEST 				?= $(GO_BUILD_ENV_TEST_VARS) go test -ldflags "$(LDFLAGS)" -race -co
 
 .PHONY: test clean
 
+clean:
+	rm -f *.coverprofile
+
 test:
 	$(GO_TEST)

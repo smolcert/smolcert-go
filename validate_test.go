@@ -2,6 +2,7 @@ package smolcert
 
 import (
 	"crypto/rand"
+	"fmt"
 	"testing"
 	"time"
 
@@ -151,4 +152,127 @@ func TestIntermediateCertsHaveCorrectKeyUsage(t *testing.T) {
 	validatesClientCert, err := pool.ValidateBundle(certBundle)
 	assert.Error(t, err)
 	assert.Empty(t, validatesClientCert)
+}
+
+func TestExpiredRootShouldntValidateClientCert(t *testing.T) {
+	now := time.Now()
+	notBefore := now.Add(time.Minute * -5)
+	notAfter := now.Add(time.Minute * -1)
+
+	rootCert, rootKey, err := SelfSignedCertificate("root", notBefore, notAfter, nil)
+	require.NoError(t, err)
+
+	clientCert, _, err := ClientCertificate("client1", 2,
+		now.Add(time.Minute*-1), now.Add(time.Hour), nil, rootKey, rootCert.Subject)
+	require.NoError(t, err)
+
+	pool := NewCertPool(rootCert)
+
+	assert.Error(t, pool.Validate(clientCert))
+
+	notBefore = now.Add(time.Minute)
+	notAfter = now.Add(time.Hour)
+	rootCert, rootKey, err = SelfSignedCertificate("root", notBefore, notAfter, nil)
+	require.NoError(t, err)
+
+	clientCert, _, err = ClientCertificate("client1", 2,
+		now.Add(time.Minute*-1), now.Add(time.Hour), nil, rootKey, rootCert.Subject)
+	require.NoError(t, err)
+
+	pool = NewCertPool(rootCert)
+
+	assert.Error(t, pool.Validate(clientCert))
+}
+
+func TestRootCertDoesNotValidateWithoutCorrectKeyExtension(t *testing.T) {
+	now := time.Now()
+	notBefore := now.Add(time.Minute * -1)
+	notAfter := now.Add(time.Hour)
+
+	rootPub, rootKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	rootCert := &Certificate{
+		SerialNumber: 1,
+		Issuer:       "root",
+		Validity: &Validity{
+			NotBefore: NewTime(notBefore),
+			NotAfter:  NewTime(notAfter),
+		},
+		Subject: "root",
+		Extensions: []Extension{
+			{
+				OID:      OIDKeyUsage,
+				Critical: false,
+				Value:    KeyUsageClientIdentification.ToBytes(),
+			},
+		},
+		PubKey: rootPub,
+	}
+
+	rootCert, err = SignCertificate(rootCert, rootKey)
+	require.NoError(t, err)
+
+	pool := NewCertPool()
+	map[string]*Certificate(*pool)[rootCert.Subject] = rootCert
+
+	clientCert, _, err := ClientCertificate("client1", 2, notBefore, notAfter, nil, rootKey, rootCert.Subject)
+	require.NoError(t, err)
+
+	assert.Error(t, pool.Validate(clientCert))
+}
+
+func TestIntermediateNeedsToBeSignedByRoot(t *testing.T) {
+	now := time.Now()
+	notBefore := now.Add(time.Minute * -1)
+	notAfter := now.Add(time.Hour)
+
+	var lastCert *Certificate
+	var lastKey ed25519.PrivateKey
+
+	var intermediates []*Certificate
+
+	for i := 0; i < 10; i++ {
+		var err error
+		if lastCert == nil {
+			lastCert, lastKey, err = SelfSignedCertificate(fmt.Sprintf("intermediate%d", i), notBefore, notAfter, nil)
+			intermediates = append(intermediates, lastCert)
+			continue
+		}
+
+		pub, privKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		cert := &Certificate{
+			SerialNumber: uint64(i + 1),
+			Issuer:       lastCert.Subject,
+			Validity: &Validity{
+				NotBefore: NewTime(notBefore),
+				NotAfter:  NewTime(notAfter),
+			},
+			Subject: fmt.Sprintf("intermediate%d", i),
+			Extensions: []Extension{
+				{
+					OID:      OIDKeyUsage,
+					Critical: true,
+					Value:    KeyUsageSignCert.ToBytes(),
+				},
+			},
+			PubKey: pub,
+		}
+		lastCert, err = SignCertificate(cert, lastKey)
+		require.NoError(t, err)
+		intermediates = append(intermediates, lastCert)
+		lastKey = privKey
+	}
+
+	clientCert, _, err := ClientCertificate("client", 12, notBefore, notAfter, nil, lastKey, lastCert.Subject)
+	require.NoError(t, err)
+	intermediates = append(intermediates, clientCert)
+
+	rootCert, _, err := SelfSignedCertificate("root", notBefore, notAfter, nil)
+	require.NoError(t, err)
+
+	pool := NewCertPool(rootCert)
+	validatesClientCert, err := pool.ValidateBundle(intermediates)
+	assert.Empty(t, validatesClientCert)
+	assert.Error(t, err)
 }

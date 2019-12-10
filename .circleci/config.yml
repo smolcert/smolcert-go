@@ -4,7 +4,7 @@ orbs:
   codecov: codecov/codecov@1.0.5
 
 jobs:
-  unit-test-latest:
+  unit-test-latest-go:
     docker:
       - image: golang:stretch
     steps:
@@ -12,7 +12,7 @@ jobs:
       - run:
           name: Build project and perform tests
           command: make test
-  unit-test:
+  unit-test-go:
       docker:
         - image: circleci/golang:1.13
       steps:
@@ -27,5 +27,5 @@ workflows:
   version: 2
   test:
     jobs:
-      - unit-test
-      - unit-test-latest
+      - unit-test-go
+      - unit-test-latest-go

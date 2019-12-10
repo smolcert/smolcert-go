@@ -8,9 +8,11 @@ use std::vec::Vec;
 
 use ed25519_dalek::{Keypair, Signature, PublicKey};
 
-pub mod errors;
+mod errors;
 
-type Result<T> = core::result::Result<T, errors::Error>;
+pub use crate::errors::*;
+
+type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug, Clone)]
 pub struct Certificate {
@@ -77,7 +79,7 @@ impl Certificate {
     let sig_res = signing_key.verify(&cert_bytes[..], &sig);
     match sig_res {
       Ok(_) => Ok(()),
-      Err(e) => Err(errors::Error::from(e)),
+      Err(e) => Err(Error::from(e)),
     }
   }
 }

@@ -1,3 +1,4 @@
 .vscode/
 rust/target/
 single.coverprofile
+target/

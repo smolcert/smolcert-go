@@ -4,6 +4,23 @@ orbs:
   codecov: codecov/codecov@1.0.5
 
 jobs:
+  unit-test-rust:
+    docker:
+      - image: rust:1
+    steps:
+      - checkout
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
+      - run:
+          name: Build all targets
+          command: cargo build --all --all-targets
+      - run:
+          name: Run all tests
+          command: cargo test --all
   unit-test-latest-go:
     docker:
       - image: golang:stretch
@@ -29,3 +46,4 @@ workflows:
     jobs:
       - unit-test-go
       - unit-test-latest-go
+      - unit-test-rust

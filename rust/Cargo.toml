@@ -7,6 +7,6 @@ edition = "2018"
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_cbor = {version="0.10", default-features=true}
-rand = "*"
-sha2 = "*"
-ed25519-dalek = {version="0.9.1", features=["serde"]}
+rand = "0.7.2"
+sha2 = "0.8.0"
+ed25519-dalek = {version="1.0.0-pre.3", features=["serde"]}

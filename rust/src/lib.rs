@@ -102,7 +102,7 @@ impl Certificate {
     let sig = Signature::from_bytes(&self.signature.data[..])?;
     let sig_res = signing_key.verify(&cert_bytes[..], &sig);
     match sig_res {
-      Ok(v) => Ok(v),
+      Ok(_) => Ok(()),
       Err(e) => Err(Error::from(e)),
     }
   }
@@ -165,13 +165,13 @@ impl<'de> de::Visitor<'de> for CertificateVisitor {
 
     let cert = Certificate {
       serial_number: seq.next_element()?.unwrap_or(0),
-      issuer: seq.next_element()?.unwrap_or("".to_string()),
+      issuer: seq.next_element()?.unwrap_or_else(||"".to_string()),
       // TODO find a more elegant
       validity: seq.next_element()?.unwrap(),
-      subject: seq.next_element()?.unwrap_or("".to_string()),
-      public_key: seq.next_element()?.unwrap_or(Bytes::empty()),
+      subject: seq.next_element()?.unwrap_or_else(||"".to_string()),
+      public_key: seq.next_element()?.unwrap_or_else(Bytes::empty),
       extensions: seq.next_element()?.unwrap(),
-      signature: seq.next_element()?.unwrap_or(Bytes::empty()),
+      signature: seq.next_element()?.unwrap_or_else(Bytes::empty),
     };
     Ok(cert)
   }
@@ -366,7 +366,6 @@ mod tests {
   use super::*;
 
   use rand::rngs::OsRng;
-  use sha2::Sha512;
 
   #[test]
   fn certificate_deserialize() {

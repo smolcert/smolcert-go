@@ -8,8 +8,6 @@ use std::fmt;
 use std::vec::Vec;
 
 use ed25519_dalek::{Keypair, Signature, SecretKey, PublicKey, SignatureError};
-use rand::rngs::{OsRng};
-use sha2::Sha512;
 
 #[derive(Debug)]
 pub struct Error {
@@ -72,7 +70,7 @@ impl Certificate {
     };
 
     let cert_bytes = cert.to_vec()?;
-    cert.signature = Bytes::from_slice(&signingKey.sign::<Sha512>(&cert_bytes[..]).to_bytes()[..]);
+    cert.signature = Bytes::from_slice(&signingKey.sign(&cert_bytes[..]).to_bytes()[..]);
     Ok(cert)
   }
 
@@ -102,7 +100,7 @@ impl Certificate {
     cert_copy.signature = Bytes::from_slice(&[0;0][..]);
     let cert_bytes = cert_copy.to_vec()?;
     let sig = Signature::from_bytes(&self.signature.data[..])?;
-    let sig_res = signingKey.verify::<Sha512>(&cert_bytes[..], &sig);
+    let sig_res = signingKey.verify(&cert_bytes[..], &sig);
     match sig_res {
       Ok(v) => Ok(v),
       Err(e) => Err(Error::from(e)),
@@ -367,6 +365,9 @@ mod tests {
 
   use super::*;
 
+  use rand::rngs::OsRng;
+  use sha2::Sha512;
+
   #[test]
   fn certificate_deserialize() {
     let cert = Certificate::from_vec(EXPECTED_CERT_BYTES).unwrap();
@@ -402,8 +403,8 @@ mod tests {
 
   #[test]
   fn self_signed() {
-    let mut csprng: OsRng = OsRng::new().unwrap();
-    let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
+    let mut csprng = OsRng{};
+    let keypair: Keypair = Keypair::generate(&mut csprng);
     let extensions: Vec<Extension> = vec![];
 
     let cert = Certificate::new_self_signed(12, "connctd self signed", Validity {

@@ -2,41 +2,15 @@
 
 use serde::de;
 use serde::ser::{SerializeSeq, Serializer};
-//use serde::de::{Visitor, Deserialize, SeqAccess};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::vec::Vec;
 
-use ed25519_dalek::{Keypair, Signature, PublicKey, SignatureError};
+use ed25519_dalek::{Keypair, Signature, PublicKey};
 
-#[derive(Debug)]
-pub struct Error {
-  code: ErrorCode,
-}
+pub mod errors;
 
-#[derive(Debug)]
-pub enum ErrorCode {
-  Serialization(serde_cbor::error::Error),
-  Signature(SignatureError),
-}
-
-impl From<serde_cbor::error::Error> for Error {
-  fn from(err: serde_cbor::error::Error) -> Error {
-    Error {
-      code: ErrorCode::Serialization(err),
-    }
-  }
-}
-
-impl From<SignatureError> for Error {
-  fn from(err: SignatureError) -> Error {
-    Error{
-      code: ErrorCode::Signature(err),
-    }
-  }
-}
-
-type Result<T> = core::result::Result<T, Error>;
+type Result<T> = core::result::Result<T, errors::Error>;
 
 #[derive(Debug, Clone)]
 pub struct Certificate {
@@ -103,7 +77,7 @@ impl Certificate {
     let sig_res = signing_key.verify(&cert_bytes[..], &sig);
     match sig_res {
       Ok(_) => Ok(()),
-      Err(e) => Err(Error::from(e)),
+      Err(e) => Err(errors::Error::from(e)),
     }
   }
 }

@@ -1,12 +1,5 @@
 //#![no_std]
 
-extern crate serde;
-extern crate serde_cbor;
-
-extern crate rand;
-extern crate ed25519_dalek;
-extern crate sha2;
-
 use serde::de;
 use serde::ser::{SerializeSeq, Serializer};
 //use serde::de::{Visitor, Deserialize, SeqAccess};

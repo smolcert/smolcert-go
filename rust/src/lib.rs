@@ -24,7 +24,7 @@ pub struct Certificate {
   pub subject: String,
   pub public_key: PublicKey,
   pub extensions: Vec<Extension>,
-  pub signature: Bytes,
+  pub signature: Option<Signature>,
 }
 
 impl Certificate {
@@ -44,11 +44,11 @@ impl Certificate {
       subject: subject.to_owned(),
       public_key: cert_keypair.public,
       extensions,
-      signature: Bytes::from_slice(&[0;0][..]),
+      signature: None,
     };
 
     let cert_bytes = cert.to_vec()?;
-    cert.signature = Bytes::from_slice(&signing_key.sign(&cert_bytes[..]).to_bytes()[..]);
+    cert.signature = Some(signing_key.sign(&cert_bytes[..]));
     Ok(cert)
   }
 
@@ -75,14 +75,20 @@ impl Certificate {
 
   pub fn verify_signature(&self, signing_key: &PublicKey) -> Result<()> {
     let mut cert_copy = self.clone();
-    cert_copy.signature = Bytes::from_slice(&[0;0][..]);
+    cert_copy.signature = None;
     let cert_bytes = cert_copy.to_vec()?;
-    let sig = Signature::from_bytes(&self.signature.data[..])?;
-    let sig_res = signing_key.verify(&cert_bytes[..], &sig);
-    match sig_res {
-      Ok(_) => Ok(()),
-      Err(e) => Err(Error::from(e)),
-    }
+    match self.signature {
+      Some(sig) => {
+        let sig_res = signing_key.verify(&cert_bytes[..], &sig);
+        match sig_res {
+          Ok(_) => Ok(()),
+          Err(e) => Err(Error::from(e)),
+        }
+      },
+      None => Err(Error{
+        code: ErrorCode::ValidationError(ValidationErrorCode::SignatureError),
+      })
+    } 
   }
 }
 
@@ -112,8 +118,9 @@ impl Serialize for Certificate {
     seq.serialize_element(&self.public_key)?;
     seq.serialize_element(&self.extensions)?;
     // TODO I would like to avoid this copy operation
-    let signature_val = serde_cbor::value::Value::Bytes(self.signature.data.clone());
-    seq.serialize_element(&signature_val)?;
+    //let signature_val = serde_cbor::value::Value::Bytes(self.signature.data.clone());
+    //seq.serialize_element(&signature_val)?;
+    seq.serialize_element(&self.signature)?;
 
     seq.end()
   }
@@ -149,7 +156,7 @@ impl<'de> de::Visitor<'de> for CertificateVisitor {
       subject: seq.next_element()?.unwrap_or_else(||"".to_string()),
       public_key: seq.next_element()?.unwrap(),
       extensions: seq.next_element()?.unwrap(),
-      signature: seq.next_element()?.unwrap_or_else(Bytes::empty),
+      signature: seq.next_element()?.unwrap_or_else(||None),
     };
     Ok(cert)
   }
@@ -287,57 +294,6 @@ impl<'de> Deserialize<'de> for Extension {
   }
 }
 
-#[derive(Debug, Clone)]
-pub struct Bytes {
-  data: Vec<u8>,
-}
-
-impl Bytes {
-  pub fn from_vec(data: Vec<u8>) -> Bytes {
-    Bytes{
-      data,
-    }
-  }
-
-  pub fn from_slice(data: &[u8]) -> Bytes {
-    Bytes{
-      data: data.to_vec(),
-    }
-  }
-
-  pub fn empty() -> Bytes {
-    Bytes{
-      data: Vec::new(),
-    }
-  }
-}
-
-impl<'de> de::Deserialize<'de> for Bytes {
-  fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-  where
-    D: de::Deserializer<'de>,
-  {
-    deserializer.deserialize_seq(ByteArrayVisitor)
-  }
-}
-
-struct ByteArrayVisitor;
-
-impl<'de> de::Visitor<'de> for ByteArrayVisitor {
-  type Value = Bytes;
-
-  fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-    formatter.write_str("a byte array")
-  }
-
-  fn visit_bytes<E>(self, v: &[u8]) -> core::result::Result<Self::Value, E>
-  where
-    E: de::Error,
-  {
-    Ok(Bytes { data: v.to_vec() })
-  }
-}
-
 #[cfg(test)]
 mod tests {
 
@@ -359,8 +315,9 @@ mod tests {
   #[test]
   fn certificate_serialize() {
     let pub_key = PublicKey::from_bytes(EXPECTED_CERT_PUB_KEY).unwrap();
-    let signature: &[u8] = &[4, 5, 6, 7];
+    let signature = Signature::from_bytes(EXPECTED_CERT_SIGNATURE).unwrap();
     let extensions: Vec<Extension> = vec![];
+    
 
     let cert = Certificate{
       serial_number: 12,
@@ -372,7 +329,7 @@ mod tests {
       subject: "barsubject".to_owned(),
       public_key: pub_key,
       extensions,
-      signature: Bytes::from_slice(&signature),
+      signature: Some(signature),
     };
 
     let res = cert.to_vec();
@@ -425,6 +382,7 @@ mod tests {
   fn correct_format() {
     let pub_key = PublicKey::from_bytes(EXPECTED_CERT_PUB_KEY).unwrap();
     let extensions: Vec<Extension> = vec![];
+    let signature = Signature::from_bytes(EXPECTED_CERT_SIGNATURE).unwrap();
 
     let cert = Certificate{
       serial_number: 12,
@@ -436,7 +394,7 @@ mod tests {
       subject: "connctd".to_owned(),
       public_key: pub_key,
       extensions,
-      signature: Bytes::from_slice(EXPECTED_CERT_SIGNATURE),
+      signature: Some(signature),
     };
 
     let res = cert.to_vec();

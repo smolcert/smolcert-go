@@ -15,7 +15,7 @@ impl<'a> CertificatePool<'a> {
     for cert in certs {
       pool.cert_subject_map.insert(cert.subject.clone(), cert);
     }
-    return pool;
+    pool
   }
 
   pub fn add_certificate(&mut self, cert: &'a Certificate) {

@@ -1,5 +1,7 @@
 use super::*;
 
+#[cfg(feature="std")]
+use std::time::{UNIX_EPOCH, SystemTime};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -26,6 +28,8 @@ impl<'a> CertificatePool<'a> {
     match self.cert_subject_map.get(&cert.issuer) {
       Some(issuer_cert) => {
         cert.verify_signature(&issuer_cert.public_key)?;
+        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+        cert.validity.is_valid(now)?;
         // TODO validate more
       },
       None => return Err(Error{

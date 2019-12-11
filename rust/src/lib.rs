@@ -1,11 +1,14 @@
 //#![no_std]
 #![cfg_attr(not(feature="std"), no_std)] 
 
+#[cfg(feature="std")]
+use std::fmt;
+use std::vec::Vec;
+
 use serde::de;
 use serde::ser::{SerializeSeq, Serializer};
 use serde::{Deserialize, Serialize};
-use std::fmt;
-use std::vec::Vec;
+
 
 use ed25519_dalek::{Keypair, Signature, PublicKey};
 
@@ -176,6 +179,20 @@ impl<'de> de::Deserialize<'de> for Certificate {
 pub struct Validity {
   pub not_before: u64,
   pub not_after: u64,
+}
+
+impl Validity {
+  pub fn is_valid(&self, now: u64) -> Result<()> {
+    if self.not_before < now || self.not_after < now {
+      return Err(Error{
+        code: ErrorCode::ValidationError(ValidationErrorCode::ValidityError{
+          not_before: self.not_before,
+          not_after: self.not_after,
+        }),
+      })
+    }
+    Ok(())
+  }
 }
 
 impl Serialize for Validity {

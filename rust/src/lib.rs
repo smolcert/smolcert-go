@@ -1,4 +1,5 @@
 //#![no_std]
+#![cfg_attr(not(feature="std"), no_std)] 
 
 use serde::de;
 use serde::ser::{SerializeSeq, Serializer};

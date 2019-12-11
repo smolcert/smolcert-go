@@ -9,8 +9,10 @@ use std::vec::Vec;
 use ed25519_dalek::{Keypair, Signature, PublicKey};
 
 mod errors;
+mod pool;
 
 pub use crate::errors::*;
+pub use crate::pool::*;
 
 type Result<T> = core::result::Result<T, Error>;
 
@@ -20,7 +22,7 @@ pub struct Certificate {
   pub issuer: String,
   pub validity: Validity,
   pub subject: String,
-  pub public_key: Bytes,
+  pub public_key: PublicKey,
   pub extensions: Vec<Extension>,
   pub signature: Bytes,
 }
@@ -40,7 +42,7 @@ impl Certificate {
       issuer: issuer.to_owned(),
       validity,
       subject: subject.to_owned(),
-      public_key: Bytes::from_slice(&cert_keypair.public.to_bytes()),
+      public_key: cert_keypair.public,
       extensions,
       signature: Bytes::from_slice(&[0;0][..]),
     };
@@ -106,8 +108,8 @@ impl Serialize for Certificate {
     seq.serialize_element(&self.subject)?;
 
     // TODO I would like to avoid this copy operation
-    let pub_key_val = serde_cbor::value::Value::Bytes(self.public_key.data.clone());
-    seq.serialize_element(&pub_key_val)?;
+    //let pub_key_val = serde_cbor::value::Value::Bytes(self.public_key.data.clone());
+    seq.serialize_element(&self.public_key)?;
     seq.serialize_element(&self.extensions)?;
     // TODO I would like to avoid this copy operation
     let signature_val = serde_cbor::value::Value::Bytes(self.signature.data.clone());
@@ -145,7 +147,7 @@ impl<'de> de::Visitor<'de> for CertificateVisitor {
       // TODO find a more elegant
       validity: seq.next_element()?.unwrap(),
       subject: seq.next_element()?.unwrap_or_else(||"".to_string()),
-      public_key: seq.next_element()?.unwrap_or_else(Bytes::empty),
+      public_key: seq.next_element()?.unwrap(),
       extensions: seq.next_element()?.unwrap(),
       signature: seq.next_element()?.unwrap_or_else(Bytes::empty),
     };
@@ -342,20 +344,21 @@ mod tests {
   use super::*;
 
   use rand::rngs::OsRng;
+  use ed25519_dalek::{Keypair, Signature, PublicKey};
 
   #[test]
   fn certificate_deserialize() {
     let cert = Certificate::from_vec(EXPECTED_CERT_BYTES).unwrap();
     assert_eq!(12, cert.serial_number);
     assert_eq!("connctd", cert.issuer);
-    assert_eq!(1_557_356_582, cert.validity.not_after);
-    assert_eq!(1_557_270_182, cert.validity.not_before);
-    assert_eq!("device", cert.subject);
+    assert_eq!(1_576_108_145, cert.validity.not_after);
+    assert_eq!(1_576_021_745, cert.validity.not_before);
+    assert_eq!("connctd", cert.subject);
   }
 
   #[test]
   fn certificate_serialize() {
-    let pub_key: &[u8] = &[0, 1, 2, 3];
+    let pub_key = PublicKey::from_bytes(EXPECTED_CERT_PUB_KEY).unwrap();
     let signature: &[u8] = &[4, 5, 6, 7];
     let extensions: Vec<Extension> = vec![];
 
@@ -367,7 +370,7 @@ mod tests {
         not_before: 2,
       },
       subject: "barsubject".to_owned(),
-      public_key: Bytes::from_slice(&pub_key),
+      public_key: pub_key,
       extensions,
       signature: Bytes::from_slice(&signature),
     };
@@ -390,27 +393,50 @@ mod tests {
   }
 
   static EXPECTED_CERT_BYTES: &[u8] = &[
-    0x87, 0x0c, 0x67, 0x63, 0x6f, 0x6e, 0x6e, 0x63, 0x74, 0x64, 0x82, 0x1a, 0x5c, 0xd2, 0x0e, 0xa6,
-    0x1a, 0x5c, 0xd3, 0x60, 0x26, 0x66, 0x64, 0x65, 0x76, 0x69, 0x63, 0x65, 0x44, 0x00, 0x42, 0x23,
-    0x05, 0x80, 0x43, 0x55, 0x42, 0x07,
+    0x87,0x0c,0x67,0x63,0x6f,0x6e,0x6e,0x63,0x74,0x64,0x82,0x1a,
+    0x5d,0xf0,0x2e,0xf1,0x1a,0x5d,0xf1,0x80,0x71,0x67,0x63,0x6f,
+    0x6e,0x6e,0x63,0x74,0x64,0x58,0x20,0x95,0x38,0xee,0xf6,0x5d,
+    0x12,0x34,0xa6,0x37,0x33,0x45,0x13,0x18,0x06,0xf8,0x00,0x6c,
+    0x4c,0x6c,0x81,0xc8,0xdb,0x58,0x19,0x24,0x18,0x9f,0x82,0x89,
+    0xdd,0x7c,0x43,0x80,0x58,0x40,0xd9,0xde,0x51,0x67,0x32,0x92,
+    0xb3,0xed,0x69,0xaa,0x83,0xdd,0xd4,0xf2,0x04,0xe2,0x5c,0x5e,
+    0xd2,0x5f,0x7d,0x43,0xa0,0x33,0x99,0x0e,0x52,0x33,0x9d,0x08,
+    0x89,0x77,0xd5,0x4c,0x1b,0x9d,0x53,0x31,0x42,0x03,0xb5,0x1d,
+    0xf1,0x38,0x78,0x85,0x06,0x87,0xbf,0x58,0xe6,0x19,0xb0,0xf7,
+    0xa8,0xfc,0xd8,0x29,0x57,0x90,0x0c,0xf7,0x82,0x01
   ];
+
+  static EXPECTED_CERT_PUB_KEY: &[u8] = &[
+    0x95, 0x38, 0xee, 0xf6, 0x5d, 0x12, 0x34, 0xa6, 0x37, 0x33, 
+    0x45, 0x13, 0x18, 0x6, 0xf8, 0x0, 0x6c, 0x4c, 0x6c, 0x81, 
+    0xc8, 0xdb, 0x58, 0x19, 0x24, 0x18, 0x9f, 0x82, 0x89, 0xdd, 0x7c, 0x43
+  ];
+
+  static EXPECTED_CERT_SIGNATURE: &[u8] = &[
+    0xd9, 0xde, 0x51, 0x67, 0x32, 0x92, 0xb3, 0xed, 0x69, 0xaa, 
+    0x83, 0xdd, 0xd4, 0xf2, 0x4, 0xe2, 0x5c, 0x5e, 0xd2, 0x5f, 
+    0x7d, 0x43, 0xa0, 0x33, 0x99, 0xe, 0x52, 0x33, 0x9d, 0x8, 
+    0x89, 0x77, 0xd5, 0x4c, 0x1b, 0x9d, 0x53, 0x31, 0x42, 0x3, 0xb5, 
+    0x1d, 0xf1, 0x38, 0x78, 0x85, 0x6, 0x87, 0xbf, 0x58, 0xe6, 0x19, 
+    0xb0, 0xf7, 0xa8, 0xfc, 0xd8, 0x29, 0x57, 0x90, 0xc, 0xf7, 0x82, 0x1
+  ];
+
   #[test]
   fn correct_format() {
-    let pub_key: &[u8] = &[0x00, 0x42, 0x23, 0x05];
-    let signature: &[u8] = &[0x55, 0x42, 0x07];
+    let pub_key = PublicKey::from_bytes(EXPECTED_CERT_PUB_KEY).unwrap();
     let extensions: Vec<Extension> = vec![];
 
     let cert = Certificate{
       serial_number: 12,
       issuer: "connctd".to_owned(),
       validity: Validity {
-        not_after: 1_557_356_582,
-        not_before: 1_557_270_182,
+        not_after: 1_576_108_145,
+        not_before: 1_576_021_745,
       },
-      subject: "device".to_owned(),
-      public_key: Bytes::from_slice(&pub_key),
+      subject: "connctd".to_owned(),
+      public_key: pub_key,
       extensions,
-      signature: Bytes::from_slice(&signature),
+      signature: Bytes::from_slice(EXPECTED_CERT_SIGNATURE),
     };
 
     let res = cert.to_vec();

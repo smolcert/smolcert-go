@@ -182,7 +182,28 @@ pub struct Validity {
 }
 
 impl Validity {
+  pub fn new(not_before: u64, not_after: u64) -> Self {
+    Validity{
+      not_after,
+      not_before,
+    }
+  }
+
+  pub fn empty() -> Self {
+    Validity{
+      not_after: 0,
+      not_before: 0,
+    }
+  }
+
+  pub fn is_empty(&self) -> bool {
+    self.not_after == 0 && self.not_before == 0 
+  }
+
   pub fn is_valid(&self, now: u64) -> Result<()> {
+    if self.is_empty() {
+      return Ok(())
+    }
     if self.not_before < now || self.not_after < now {
       return Err(Error{
         code: ErrorCode::ValidationError(ValidationErrorCode::ValidityError{

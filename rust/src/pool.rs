@@ -39,3 +39,25 @@ impl<'a> CertificatePool<'a> {
     Ok(())
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  use rand::rngs::OsRng;
+
+  #[test]
+  fn test_cert_pool_validate_single_cert() {
+    let mut csprng = OsRng{};
+    let root_keypair: Keypair = Keypair::generate(&mut csprng);
+    let root_cert = Certificate::new_self_signed(1, &"connctd", Validity::empty(), &"connctd", vec![], &root_keypair).unwrap();
+
+    let root_certs = [root_cert];
+    let cert_pool = CertificatePool::new(&root_certs[..]);
+
+    let client_keypair = Keypair::generate(&mut csprng);
+    let client_cert = Certificate::new(2, &"connctd", Validity::empty(), &"client 1", vec![], &client_keypair, &root_keypair).unwrap();
+
+    cert_pool.validate(&client_cert).unwrap();
+  }
+}

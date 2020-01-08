@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 smolcert = { path = "../smolcert-rust"}
+clap = { version = "2.33" }

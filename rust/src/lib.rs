@@ -96,15 +96,6 @@ impl Certificate {
   }
 }
 
-/*fn deserialize_slice<'de, D>(deserializer: D) -> core::result::Result<Vec<u8>, D::Error>
-  where
-    D: de::Deserializer<'de> ,
-{
-  let out: Vec<u8> = Vec::new();
-
-  deserializer.deserialize_bytes(visitor: V)
-}*/
-
 impl Serialize for Certificate {
   fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
   where

@@ -225,6 +225,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "smlcrt"
+version = "0.1.0"
+dependencies = [
+ "smolcert 0.1.0",
+]
+
+[[package]]
 name = "smolcert"
 version = "0.1.0"
 dependencies = [

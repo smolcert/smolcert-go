@@ -24,6 +24,7 @@ impl<'a> CertificatePool<'a> {
     self.cert_subject_map.insert(cert.subject.clone(), cert);
   }
 
+  #[cfg(feature="std")]
   pub fn validate(&self, cert: &Certificate) -> Result<()> {
     match self.cert_subject_map.get(&cert.issuer) {
       Some(issuer_cert) => {

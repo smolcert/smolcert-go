@@ -1,4 +1,6 @@
 [workspace]
 members = [
-    "rust",
+    "smolcert-rust",
+    "smlcrt-bin",
 ]
+exclude = ["/.circleci", "/.vscode", "*.go", "go.mod", "go.sum", "/Makefile", "*.coverprofile"]

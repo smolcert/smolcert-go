@@ -2,6 +2,14 @@ use super::*;
 
 type OID = u64;
 
+const OIDKeyUsage: OID = 0x10;
+
+type KeyUsage = u8;
+
+const ClientIdentification: KeyUsage = 0x01;
+const ServerIdentification: KeyUsage = 0x02;
+const SignCertificate: KeyUsage = 0x03;
+
 #[derive(Debug, Clone)]
 pub struct Extension {
   pub oid: OID,

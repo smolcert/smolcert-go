@@ -2,13 +2,13 @@ use super::*;
 
 pub type OID = u64;
 
-pub const OIDKeyUsage: OID = 0x10;
+pub const OID_KEYUSAGE: OID = 0x10;
 
 pub type KeyUsage = u8;
 
-pub const ClientIdentification: KeyUsage = 0x01;
-pub const ServerIdentification: KeyUsage = 0x02;
-pub const SignCertificate: KeyUsage = 0x03;
+pub const CLIENT_IDENTIFICATION: KeyUsage = 0x01;
+pub const SERVER_IDENTIFICATION: KeyUsage = 0x02;
+pub const SIGN_CERTIFICATE: KeyUsage = 0x03;
 
 #[derive(Debug, Clone)]
 pub struct Extension {

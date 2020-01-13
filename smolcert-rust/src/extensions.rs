@@ -1,8 +1,10 @@
 use super::*;
 
+type OID = u64;
+
 #[derive(Debug, Clone)]
 pub struct Extension {
-  pub oid: u64,
+  pub oid: OID,
   pub critical: bool,
   pub value: Vec<u8>,
 }

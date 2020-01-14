@@ -10,11 +10,34 @@ pub const CLIENT_IDENTIFICATION: KeyUsage = 0x01;
 pub const SERVER_IDENTIFICATION: KeyUsage = 0x02;
 pub const SIGN_CERTIFICATE: KeyUsage = 0x03;
 
+pub trait ExtensionValue {
+  fn as_bytes(&self) ->Vec<u8>;
+}
+
+impl ExtensionValue for KeyUsage {
+  fn as_bytes(&self) ->Vec<u8>{
+    vec![*self as u8]
+  }
+}
+
 #[derive(Debug, Clone)]
 pub struct Extension {
   pub oid: OID,
   pub critical: bool,
   pub value: Vec<u8>,
+}
+
+impl Extension {
+  pub fn new<V>(oid: OID, critical: bool, value: V) -> Self 
+  where 
+    V: ExtensionValue 
+  {
+    Extension{
+      oid,
+      critical,
+      value: value.as_bytes(),
+    }
+  }
 }
 
 impl Serialize for Extension {

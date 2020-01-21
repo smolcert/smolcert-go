@@ -23,33 +23,39 @@ pub use crate::extensions::*;
 type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug, Clone)]
-pub struct Certificate {
+pub struct Certificate<'a, E> 
+where
+  E: Extension<'a>
+{
   pub serial_number: u64,
-  pub issuer: String,
+  pub issuer: &'a str,
   pub validity: Validity,
-  pub subject: String,
+  pub subject: &'a str,
   pub public_key: PublicKey,
-  pub extensions: Vec<Extension>,
+  pub extensions: Vec<E>,
   pub signature: Option<Signature>,
 }
 
-impl Certificate {
-  pub fn new<'a>(
+impl<'a, E> Certificate<'a, E>
+where
+  E: Extension<'a>
+{
+  pub fn new(
     serial_number: u64,
     issuer: &'a str,
     validity: Validity,
     subject: &'a str,
-    extensions: Vec<Extension>,
+    exts: Vec<E>,
     cert_keypair: &Keypair,
     signing_key: &Keypair,
   ) -> Result<Self> {
     let mut cert = Certificate {
       serial_number,
-      issuer: issuer.to_owned(),
+      issuer,
       validity,
-      subject: subject.to_owned(),
+      subject,
       public_key: cert_keypair.public,
-      extensions,
+      extensions: exts,
       signature: None,
     };
 
@@ -58,31 +64,33 @@ impl Certificate {
     Ok(cert)
   }
 
-  pub fn new_self_signed<'a>(
+  pub fn new_self_signed(
     serial_number: u64,
     issuer: &'a str,
     validity: Validity,
     subject: &'a str,
-    extensions: Vec<Extension>,
+    extensions: Vec<E>,
     cert_keypair: &Keypair,
   ) -> Result<Self> {
-    Certificate::new(serial_number,issuer,validity,subject,extensions, cert_keypair, cert_keypair)
+    Certificate::new(serial_number,issuer,validity,subject, extensions, cert_keypair, cert_keypair)
   }
 
   pub fn to_vec(&self) -> Result<Vec<u8>> {
-    let res_vec = serde_cbor::ser::to_vec_packed(self)?;
+    let res_vec = serde_cbor::ser::to_vec_packed(&self)?;
     Ok(res_vec)
   }
 
-  pub fn from_vec(in_data: &[u8]) -> Result<Certificate> {
+  pub fn from_vec(in_data: &[u8]) -> Result<Certificate<GenericExtension>> {
     let cert = serde_cbor::from_slice(in_data)?;
     Ok(cert)
   }
 
-  pub fn verify_signature(&self, signing_key: &PublicKey) -> Result<()> {
-    let mut cert_copy = self.clone();
-    cert_copy.signature = None;
-    let cert_bytes = cert_copy.to_vec()?;
+  pub fn verify_signature(&mut self, signing_key: &PublicKey) -> Result<()> {
+    //let mut cert_copy = self.clone().to_owned();
+    let signature = self.signature;
+    self.signature = None;
+    let cert_bytes = self.to_vec()?;
+    self.signature = signature;
     match self.signature {
       Some(sig) => {
         let sig_res = signing_key.verify(&cert_bytes[..], &sig);
@@ -98,7 +106,10 @@ impl Certificate {
   }
 }
 
-impl Serialize for Certificate {
+impl<'a, E> Serialize for Certificate<'a, E> 
+where
+  E: Extension<'a>
+{
   fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
   where
     S: Serializer,
@@ -110,13 +121,8 @@ impl Serialize for Certificate {
     seq.serialize_element(&self.validity)?;
     seq.serialize_element(&self.subject)?;
 
-    // TODO I would like to avoid this copy operation
-    //let pub_key_val = serde_cbor::value::Value::Bytes(self.public_key.data.clone());
     seq.serialize_element(&self.public_key)?;
     seq.serialize_element(&self.extensions)?;
-    // TODO I would like to avoid this copy operation
-    //let signature_val = serde_cbor::value::Value::Bytes(self.signature.data.clone());
-    //seq.serialize_element(&signature_val)?;
     seq.serialize_element(&self.signature)?;
 
     seq.end()
@@ -126,7 +132,7 @@ impl Serialize for Certificate {
 struct CertificateVisitor;
 
 impl<'de> de::Visitor<'de> for CertificateVisitor {
-  type Value = Certificate;
+  type Value = Certificate<'de, GenericExtension>;
 
   fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
     formatter.write_str("a 7 element array representing a CBOR based certificate")
@@ -145,21 +151,29 @@ impl<'de> de::Visitor<'de> for CertificateVisitor {
       }
     }
 
-    let cert = Certificate {
-      serial_number: seq.next_element()?.unwrap_or(0),
-      issuer: seq.next_element()?.unwrap_or_else(||"".to_string()),
-      // TODO find a more elegant
-      validity: seq.next_element()?.unwrap(),
-      subject: seq.next_element()?.unwrap_or_else(||"".to_string()),
-      public_key: seq.next_element()?.unwrap(),
-      extensions: seq.next_element()?.unwrap(),
-      signature: seq.next_element()?.unwrap_or_else(||None),
+    let serial_number : u64= seq.next_element()?.unwrap_or(0);
+    let issuer : &str= seq.next_element()?.unwrap_or_else(||"");
+    let validity : Validity =  seq.next_element()?.unwrap();
+    let subject : &str = seq.next_element()?.unwrap_or_else(||"");
+    let public_key : PublicKey = seq.next_element()?.unwrap();
+    let extensions : Vec<GenericExtension> = seq.next_element()?.unwrap();
+    let signature : Option<Signature> = seq.next_element()?.unwrap_or_else(||None);
+
+    let cert : Certificate<GenericExtension> = Certificate {
+      serial_number,
+      issuer,
+      // TODO find a more elegant way
+      validity,
+      subject,
+      public_key,
+      extensions,
+      signature,
     };
     Ok(cert)
   }
 }
 
-impl<'de> de::Deserialize<'de> for Certificate {
+impl<'de> de::Deserialize<'de> for Certificate<'de, GenericExtension> {
   fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
   where
     D: de::Deserializer<'de>,
@@ -168,7 +182,7 @@ impl<'de> de::Deserialize<'de> for Certificate {
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Validity {
   pub not_before: u64,
   pub not_after: u64,

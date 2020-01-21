@@ -1,5 +1,7 @@
 use super::*;
 
+use serde::{Deserialize, Serialize};
+
 pub type OID = u64;
 
 pub const OID_KEYUSAGE: OID = 0x10;
@@ -20,19 +22,46 @@ impl ExtensionValue for KeyUsage {
   }
 }
 
-#[derive(Debug, Clone)]
-pub struct Extension {
+pub trait Extension<'de>: Serialize + Deserialize<'de> {
+  fn oid(&self) -> OID;
+  fn critical(&self) -> bool;
+  fn value(&self) -> &[u8];
+  fn as_generic(&self) ->GenericExtension {
+    GenericExtension{
+      oid: self.oid(),
+      critical: self.critical(),
+      value: self.value().to_vec(),
+    }
+  }
+}
+
+#[derive(Debug)]
+pub struct GenericExtension {
   pub oid: OID,
   pub critical: bool,
   pub value: Vec<u8>,
 }
 
-impl Extension {
+impl<'de> Extension<'de> for GenericExtension {
+  fn oid(&self) -> OID {
+    self.oid
+  }
+
+  fn critical(&self) -> bool {
+    self.critical
+  }
+
+  fn value(&self) -> &[u8] {
+    &self.value
+  }
+}
+
+impl GenericExtension {
   pub fn new<V>(oid: OID, critical: bool, value: V) -> Self 
   where 
     V: ExtensionValue 
   {
-    Extension{
+    GenericExtension{
       oid,
       critical,
       value: value.as_bytes(),
@@ -40,27 +69,29 @@ impl Extension {
   }
 }
 
-impl Serialize for Extension {
+impl Serialize for GenericExtension
+{
   fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
   where
     S: Serializer,
   {
     let mut seq = serializer.serialize_seq(Some(3))?;
 
-    seq.serialize_element(&self.oid)?;
-    seq.serialize_element(&self.critical)?;
+    seq.serialize_element(&self.oid())?;
+    seq.serialize_element(&self.critical())?;
     // TODO I would like to avoid this copy operation
-    let value_val = serde_cbor::value::Value::Bytes(self.value.clone());
+    let value_val = serde_cbor::value::Value::Bytes(self.value().to_vec());
     seq.serialize_element(&value_val)?;
 
     seq.end()
   }
 }
 
-struct ExtensionVisitor;
+struct GenericExtensionVisitor;
 
-impl<'de> de::Visitor<'de> for ExtensionVisitor {
-  type Value = Extension;
+impl<'de> de::Visitor<'de> for GenericExtensionVisitor  
+{
+  type Value = GenericExtension;
 
   fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
     formatter.write_str("a 3 element array representing an Extension")
@@ -78,7 +109,7 @@ impl<'de> de::Visitor<'de> for ExtensionVisitor {
         ));
       }
     }
-    let ext = Extension {
+    let ext = GenericExtension {
       oid: seq.next_element()?.unwrap_or(0),
       critical: seq.next_element()?.unwrap_or(true),
       value: seq.next_element()?.unwrap(),
@@ -87,11 +118,11 @@ impl<'de> de::Visitor<'de> for ExtensionVisitor {
   }
 }
 
-impl<'de> Deserialize<'de> for Extension {
+impl<'de> Deserialize<'de> for GenericExtension {
   fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
   where
     D: de::Deserializer<'de>,
   {
-    deserializer.deserialize_seq(ExtensionVisitor)
+    deserializer.deserialize_seq(GenericExtensionVisitor)
   }
 }

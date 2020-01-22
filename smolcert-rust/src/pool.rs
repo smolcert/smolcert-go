@@ -5,18 +5,14 @@ use std::time::{UNIX_EPOCH, SystemTime};
 use std::collections::HashMap;
 
 #[derive(Debug)]
-pub struct CertificatePool<'a, 'c, E> 
-where 
-  E: Extension<'a>
+pub struct CertificatePool<'c> 
 {
-  cert_subject_map: HashMap<String,&'c Certificate<'a, E>>,
+  cert_subject_map: HashMap<String, &'c Certificate<'c>>,
 }
 
-impl<'a,'c, E> CertificatePool<'a,'c, E> 
-where
-  E: Extension<'a>
+impl<'c> CertificatePool<'c> 
 {
-  pub fn new(certs: &'c [Certificate<'a, E>]) -> Self {
+  pub fn new(certs: &'c [Certificate]) -> Self {
     let mut pool = CertificatePool{
       cert_subject_map: HashMap::new(),
     };
@@ -26,12 +22,12 @@ where
     pool
   }
 
-  pub fn add_certificate(&mut self, cert: &'c Certificate<'a, E>) {
+  pub fn add_certificate(&mut self, cert: &'c Certificate) {
     self.cert_subject_map.insert(cert.subject.to_owned(), cert);
   }
 
   #[cfg(feature="std")]
-  pub fn validate(&self, cert: &mut Certificate<'a, E>) -> Result<()> {
+  pub fn validate(&self, cert: &mut Certificate) -> Result<()> {
     match self.cert_subject_map.get(&cert.issuer.to_owned()) {
       Some(issuer_cert) => {
         cert.verify_signature(&issuer_cert.public_key)?;

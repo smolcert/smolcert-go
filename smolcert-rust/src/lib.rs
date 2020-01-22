@@ -23,29 +23,25 @@ pub use crate::extensions::*;
 type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug, Clone)]
-pub struct Certificate<'a, E> 
-where
-  E: Extension<'a>
+pub struct Certificate<'a> 
 {
   pub serial_number: u64,
   pub issuer: &'a str,
   pub validity: Validity,
   pub subject: &'a str,
   pub public_key: PublicKey,
-  pub extensions: Vec<E>,
+  pub extensions: Vec<Extension>,
   pub signature: Option<Signature>,
 }
 
-impl<'a, E> Certificate<'a, E>
-where
-  E: Extension<'a>
+impl<'a> Certificate<'a>
 {
   pub fn new(
     serial_number: u64,
     issuer: &'a str,
     validity: Validity,
     subject: &'a str,
-    exts: Vec<E>,
+    exts: Vec<Extension>,
     cert_keypair: &Keypair,
     signing_key: &Keypair,
   ) -> Result<Self> {
@@ -69,7 +65,7 @@ where
     issuer: &'a str,
     validity: Validity,
     subject: &'a str,
-    extensions: Vec<E>,
+    extensions: Vec<Extension>,
     cert_keypair: &Keypair,
   ) -> Result<Self> {
     Certificate::new(serial_number,issuer,validity,subject, extensions, cert_keypair, cert_keypair)
@@ -80,7 +76,7 @@ where
     Ok(res_vec)
   }
 
-  pub fn from_vec(in_data: &[u8]) -> Result<Certificate<GenericExtension>> {
+  pub fn from_vec(in_data: &[u8]) -> Result<Certificate> {
     let cert = serde_cbor::from_slice(in_data)?;
     Ok(cert)
   }
@@ -106,9 +102,7 @@ where
   }
 }
 
-impl<'a, E> Serialize for Certificate<'a, E> 
-where
-  E: Extension<'a>
+impl<'a> Serialize for Certificate<'a>
 {
   fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
   where
@@ -132,7 +126,7 @@ where
 struct CertificateVisitor;
 
 impl<'de> de::Visitor<'de> for CertificateVisitor {
-  type Value = Certificate<'de, GenericExtension>;
+  type Value = Certificate<'de>;
 
   fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
     formatter.write_str("a 7 element array representing a CBOR based certificate")
@@ -156,10 +150,10 @@ impl<'de> de::Visitor<'de> for CertificateVisitor {
     let validity : Validity =  seq.next_element()?.unwrap();
     let subject : &str = seq.next_element()?.unwrap_or_else(||"");
     let public_key : PublicKey = seq.next_element()?.unwrap();
-    let extensions : Vec<GenericExtension> = seq.next_element()?.unwrap();
+    let extensions : Vec<Extension> = seq.next_element()?.unwrap();
     let signature : Option<Signature> = seq.next_element()?.unwrap_or_else(||None);
 
-    let cert : Certificate<GenericExtension> = Certificate {
+    let cert : Certificate = Certificate {
       serial_number,
       issuer,
       // TODO find a more elegant way
@@ -173,7 +167,7 @@ impl<'de> de::Visitor<'de> for CertificateVisitor {
   }
 }
 
-impl<'de> de::Deserialize<'de> for Certificate<'de, GenericExtension> {
+impl<'de> de::Deserialize<'de> for Certificate<'de> {
   fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
   where
     D: de::Deserializer<'de>,

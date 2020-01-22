@@ -12,64 +12,52 @@ pub const CLIENT_IDENTIFICATION: KeyUsage = 0x01;
 pub const SERVER_IDENTIFICATION: KeyUsage = 0x02;
 pub const SIGN_CERTIFICATE: KeyUsage = 0x03;
 
-pub trait ExtensionValue {
-  fn as_bytes(&self) ->Vec<u8>;
+#[derive(Debug, Clone)]
+pub enum Extension {
+  KeyUsage(KeyUsage),
+  Unknown{
+    oid: OID,
+    value: Vec<u8>,
+    critical: bool,
+  },
 }
 
-impl ExtensionValue for KeyUsage {
-  fn as_bytes(&self) ->Vec<u8>{
-    vec![*self as u8]
+impl Extension {
+ pub fn oid(&self) -> OID {
+   match self {
+     Extension::KeyUsage(_) => {
+       OID_KEYUSAGE
+     },
+     Extension::Unknown{oid, value: _value, critical: _critical} => {
+       *oid
+     }
+   }
+ }
+
+  pub fn critical(&self) -> bool {
+    match self {
+      Extension::KeyUsage(_) => {
+        true
+      }
+      Extension::Unknown{oid: _oid, value: _value, critical} => {
+        *critical
+      }
+    }
   }
-}
 
-pub trait Extension<'de>: Serialize + Deserialize<'de> {
-  fn oid(&self) -> OID;
-  fn critical(&self) -> bool;
-  fn value(&self) -> &[u8];
-  fn as_generic(&self) ->GenericExtension {
-    GenericExtension{
-      oid: self.oid(),
-      critical: self.critical(),
-      value: self.value().to_vec(),
+  pub fn value(&self) -> Vec<u8> {
+    match self {
+      Extension::KeyUsage(val) => {
+        vec![*val as u8]
+      }
+      Extension::Unknown{oid: _oid, value, critical: _critical} => {
+        value.to_vec()
+      }
     }
   }
 }
 
-#[derive(Debug)]
-pub struct GenericExtension {
-  pub oid: OID,
-  pub critical: bool,
-  pub value: Vec<u8>,
-}
-
-impl<'de> Extension<'de> for GenericExtension {
-  fn oid(&self) -> OID {
-    self.oid
-  }
-
-  fn critical(&self) -> bool {
-    self.critical
-  }
-
-  fn value(&self) -> &[u8] {
-    &self.value
-  }
-}
-
-impl GenericExtension {
-  pub fn new<V>(oid: OID, critical: bool, value: V) -> Self 
-  where 
-    V: ExtensionValue 
-  {
-    GenericExtension{
-      oid,
-      critical,
-      value: value.as_bytes(),
-    }
-  }
-}
-
-impl Serialize for GenericExtension
+impl Serialize for Extension
 {
   fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
   where
@@ -80,18 +68,18 @@ impl Serialize for GenericExtension
     seq.serialize_element(&self.oid())?;
     seq.serialize_element(&self.critical())?;
     // TODO I would like to avoid this copy operation
-    let value_val = serde_cbor::value::Value::Bytes(self.value().to_vec());
+    let value_val = serde_cbor::value::Value::Bytes(self.value());
     seq.serialize_element(&value_val)?;
 
     seq.end()
   }
 }
 
-struct GenericExtensionVisitor;
+struct ExtensionVisitor;
 
-impl<'de> de::Visitor<'de> for GenericExtensionVisitor  
+impl<'de> de::Visitor<'de> for ExtensionVisitor  
 {
-  type Value = GenericExtension;
+  type Value = Extension;
 
   fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
     formatter.write_str("a 3 element array representing an Extension")
@@ -109,20 +97,41 @@ impl<'de> de::Visitor<'de> for GenericExtensionVisitor
         ));
       }
     }
-    let ext = GenericExtension {
-      oid: seq.next_element()?.unwrap_or(0),
-      critical: seq.next_element()?.unwrap_or(true),
-      value: seq.next_element()?.unwrap(),
+    let oid: OID = seq.next_element()?.unwrap_or(0);
+    let critical : bool = seq.next_element()?.unwrap_or(true);
+    let value : Vec<u8> = seq.next_element()?.unwrap_or_else(||vec![0x0]);
+
+    let ext = match oid {
+      OID_KEYUSAGE => {
+        let val: KeyUsage = match value[0] {
+          CLIENT_IDENTIFICATION => CLIENT_IDENTIFICATION,
+          SERVER_IDENTIFICATION => SERVER_IDENTIFICATION,
+          SIGN_CERTIFICATE => SIGN_CERTIFICATE,
+          v => return Err(de::Error::invalid_value(
+            de::Unexpected::Unsigned(v as u64),
+            &self,
+          ))
+        };
+        Extension::KeyUsage(val)
+      },
+      _ => {
+        Extension::Unknown{
+          value,
+          oid,
+          critical,
+        }
+      }
     };
+    
     Ok(ext)
   }
 }
 
-impl<'de> Deserialize<'de> for GenericExtension {
+impl<'de> Deserialize<'de> for Extension {
   fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
   where
     D: de::Deserializer<'de>,
   {
-    deserializer.deserialize_seq(GenericExtensionVisitor)
+    deserializer.deserialize_seq(ExtensionVisitor)
   }
 }

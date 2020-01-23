@@ -59,8 +59,8 @@ mod tests {
     let cert_pool = CertificatePool::new(&root_certs[..]);
 
     let client_keypair = Keypair::generate(&mut csprng);
-    let client_cert = Certificate::new(2, &"connctd", Validity::empty(), &"client 1", vec![], &client_keypair, &root_keypair).unwrap();
+    let mut client_cert = Certificate::new(2, &"connctd", Validity::empty(), &"client 1", vec![], &client_keypair, &root_keypair).unwrap();
 
-    cert_pool.validate(&client_cert).unwrap();
+    cert_pool.validate(&mut client_cert).unwrap();
   }
 }

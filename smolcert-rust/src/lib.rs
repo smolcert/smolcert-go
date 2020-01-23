@@ -298,12 +298,12 @@ mod tests {
 
     let cert = Certificate{
       serial_number: 12,
-      issuer: "fooissuer".to_owned(),
+      issuer: "fooissuer",
       validity: Validity {
         not_after: 13,
         not_before: 2,
       },
-      subject: "barsubject".to_owned(),
+      subject: "barsubject",
       public_key: pub_key,
       extensions,
       signature: Some(signature),
@@ -319,7 +319,7 @@ mod tests {
     let keypair: Keypair = Keypair::generate(&mut csprng);
     let extensions: Vec<Extension> = vec![];
 
-    let cert = Certificate::new_self_signed(12, "connctd self signed", Validity {
+    let mut cert = Certificate::new_self_signed(12, "connctd self signed", Validity {
       not_after: 13,
       not_before: 2,
     }, "subject self", extensions, &keypair).unwrap();
@@ -363,12 +363,12 @@ mod tests {
 
     let cert = Certificate{
       serial_number: 12,
-      issuer: "connctd".to_owned(),
+      issuer: "connctd",
       validity: Validity {
         not_after: 1_576_108_145,
         not_before: 1_576_021_745,
       },
-      subject: "connctd".to_owned(),
+      subject: "connctd",
       public_key: pub_key,
       extensions,
       signature: Some(signature),

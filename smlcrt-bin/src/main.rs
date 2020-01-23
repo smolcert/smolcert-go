@@ -4,7 +4,8 @@ extern crate clap;
 use clap::{App, SubCommand, Arg, ArgMatches};
 
 use std::path::Path;
-use canonical_path::*;
+use std::fs::File;
+use std::io::prelude::*;
 use rand::rngs::OsRng;
 use ed25519_dalek::{Keypair, SecretKey};
 use chrono::DateTime;
@@ -59,15 +60,16 @@ fn main() {
                 Arg::with_name("out_name")
                     .help("Base name where to write the certificate and the private key")
                     .long("out")
+                    .takes_value(true)
                     .required(true),
                 Arg::with_name("not_before")
-                    .help("Date after which the certificate is valid")
+                    .help("Date after which the certificate is valid in RFC3339 (i.e. 2020-01-23T00:00:00Z)")
                     .required(false)
                     .long("not-before")
                     .validator(validate_date)
                     .takes_value(true),
                 Arg::with_name("not_after")
-                    .help("Date before which the certificate is valid")
+                    .help("Date before which the certificate is valid in RFC3339 (i.e. 2022-01-23T00:00:00Z)")
                     .required(false)
                     .long("not-after")
                     .validator(validate_date)
@@ -147,8 +149,20 @@ fn write_cert_and_key_to_disk<'a>(
     priv_key: &SecretKey, 
     out_base_name: &str) -> Result<()> 
 {
-    let base_path = CanonicalPath::new(Path::new(out_base_name))?;
-    let _cert_path = base_path.with_extension("smlcrt")?;
-    let _key_path = base_path.with_extension("smlkey")?;
+    let base_path = Path::new(out_base_name);
+
+    let cert_path = base_path.with_extension("smlcrt");
+    let key_path = base_path.with_extension("smlkey");
+    println!("Writing cert to {:?} and key to {:?}", cert_path, key_path);
+
+
+    let mut cert_file = File::create(&cert_path)?;
+    let mut key_file = File::create(&key_path)?;
+
+    let cert_bytes = cert.to_vec()?;
+
+    println!("Writing cert to {:?}", cert_path);
+    cert_file.write_all(&cert_bytes)?;
+    key_file.write_all(priv_key.as_bytes())?;
     Ok(())
 }

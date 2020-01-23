@@ -8,8 +8,13 @@ use canonical_path::*;
 use rand::rngs::OsRng;
 use ed25519_dalek::{Keypair, SecretKey};
 use chrono::DateTime;
+use smolcert::{Certificate, Validity, Extension, SIGN_CERTIFICATE};
 
-use smolcert::*;
+mod errors;
+
+use crate::errors::*;
+
+type Result<T> = core::result::Result<T, Error>;
 
 fn main() {
     let matches = App::new("smlcrt")
@@ -85,12 +90,12 @@ fn main() {
     }
 }
 
-fn validate_date(_v: String) -> Result<(), String> {
+fn validate_date(_v: String) -> std::result::Result<(), String> {
     // TODO actually validate date strings
     Ok(())
 }
 
-fn validate_serialnumber(v: String) -> Result<(), String> {
+fn validate_serialnumber(v: String) -> std::result::Result<(), String> {
     if !v.parse::<u64>().is_ok() {
         Err(String::from("This is not a valid unsigned integer"))
     } else {
@@ -98,27 +103,27 @@ fn validate_serialnumber(v: String) -> Result<(), String> {
     }
 }
 
-fn create_certificate(matches: &ArgMatches) -> Result<(),String> {
+fn create_certificate(matches: &ArgMatches) -> Result<()> {
     println!("Creating certificate");
 
     let subject = matches.value_of("subject").unwrap();
     let client_cert = matches.is_present("client");
     let server_cert = matches.is_present("server");
     let self_signed = matches.is_present("self_signed");
-    let serial_number_str = matches.value_of("serialnumber").unwrap();
-    let serial_number : u64 = serial_number_str.parse().unwrap();
+    let serial_number_str = matches.value_of("serialnumber").ok_or(Error::new("Serialnumber is missing".to_string()))?;
+    let serial_number : u64 = serial_number_str.parse()?;
 
-    let out_base_name = matches.value_of("out_name").unwrap();
+    let out_base_name = matches.value_of("out_name").ok_or(Error::new("Out base path is missing".to_string()))?;
 
     let mut validity = Validity::empty();
 
     if let Some(not_before_str) = matches.value_of("not_before") {
-        let not_before = DateTime::parse_from_rfc3339(&not_before_str).unwrap();
+        let not_before = DateTime::parse_from_rfc3339(&not_before_str)?;
         validity.not_before = not_before.timestamp() as u64;
     }
 
     if let Some(not_after_str) = matches.value_of("not_after") {
-        let not_after = DateTime::parse_from_rfc3339(&not_after_str).unwrap();
+        let not_after = DateTime::parse_from_rfc3339(&not_after_str)?;
         validity.not_after = not_after.timestamp() as u64;
     }
 
@@ -127,15 +132,21 @@ fn create_certificate(matches: &ArgMatches) -> Result<(),String> {
 
     if self_signed {
         let cert = Certificate::new_self_signed(serial_number, 
-            &subject, validity, &subject, vec![Extension::new(OID_KEYUSAGE, true, SIGN_CERTIFICATE)], 
-            &cert_keypair).unwrap();
-        write_cert_and_key_to_disk(&cert, &cert_keypair.secret, &out_base_name).unwrap();
+            &subject, validity, &subject, vec![Extension::KeyUsage(SIGN_CERTIFICATE)], 
+            &cert_keypair)?;
+        write_cert_and_key_to_disk(&cert, &cert_keypair.secret, &out_base_name)?;
     } else {
     }
     Ok(())
 }
 
-fn write_cert_and_key_to_disk(cert: &Certificate, priv_key: &SecretKey, out_base_name: &str) -> Result<(), String> {
-    let base_path = CanonicalPath::new(Path::new(out_base_name)).unwrap();
+fn write_cert_and_key_to_disk<'a>(
+    cert: &'a Certificate, 
+    priv_key: &SecretKey, 
+    out_base_name: &str) -> Result<()> 
+{
+    let base_path = CanonicalPath::new(Path::new(out_base_name))?;
+    let _cert_path = base_path.with_extension("smlcrt")?;
+    let _key_path = base_path.with_extension("smlkey")?;
     Ok(())
 }

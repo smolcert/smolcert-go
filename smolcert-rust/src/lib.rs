@@ -12,9 +12,9 @@ use serde::{Deserialize, Serialize};
 
 use ed25519_dalek::{Keypair, Signature, PublicKey};
 
-mod errors;
-mod pool;
-mod extensions;
+pub mod errors;
+pub mod pool;
+pub mod extensions;
 
 pub use crate::errors::*;
 pub use crate::pool::*;

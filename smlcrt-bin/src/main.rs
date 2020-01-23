@@ -23,6 +23,7 @@ fn main() {
         .author(crate_authors!())
         .subcommand(
             SubCommand::with_name("create")
+            .about("Creates a new Smolcert")
             .args(&[
                 Arg::with_name("subject")
                     .help("The subject of the new certificate")
@@ -136,6 +137,7 @@ fn create_certificate(matches: &ArgMatches) -> Result<()> {
             &cert_keypair)?;
         write_cert_and_key_to_disk(&cert, &cert_keypair.secret, &out_base_name)?;
     } else {
+        return Err(Error::new("unsupported".to_string()));
     }
     Ok(())
 }

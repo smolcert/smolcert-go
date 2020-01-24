@@ -4,6 +4,8 @@
 #[cfg(feature="std")]
 use std::fmt;
 use std::vec::Vec;
+use std::fs::File;
+use std::path::Path;
 
 use serde::de;
 use serde::ser::{SerializeSeq, Serializer};
@@ -23,24 +25,24 @@ pub use crate::extensions::*;
 type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug, Clone)]
-pub struct Certificate<'a> 
+pub struct Certificate
 {
   pub serial_number: u64,
-  pub issuer: &'a str,
+  pub issuer: String,
   pub validity: Validity,
-  pub subject: &'a str,
+  pub subject: String,
   pub public_key: PublicKey,
   pub extensions: Vec<Extension>,
   pub signature: Option<Signature>,
 }
 
-impl<'a> Certificate<'a>
+impl Certificate
 {
   pub fn new(
     serial_number: u64,
-    issuer: &'a str,
+    issuer: String,
     validity: Validity,
-    subject: &'a str,
+    subject: String,
     exts: Vec<Extension>,
     cert_keypair: &Keypair,
     signing_key: &Keypair,
@@ -62,9 +64,9 @@ impl<'a> Certificate<'a>
 
   pub fn new_self_signed(
     serial_number: u64,
-    issuer: &'a str,
+    issuer: String,
     validity: Validity,
-    subject: &'a str,
+    subject: String,
     extensions: Vec<Extension>,
     cert_keypair: &Keypair,
   ) -> Result<Self> {
@@ -76,8 +78,15 @@ impl<'a> Certificate<'a>
     Ok(res_vec)
   }
 
-  pub fn from_vec(in_data: &[u8]) -> Result<Certificate> {
+  pub fn from_slice(in_data: &[u8]) -> Result<Certificate> {
     let cert = serde_cbor::from_slice(in_data)?;
+    Ok(cert)
+  }
+
+  #[cfg(feature="std")]
+  pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Certificate> {
+    let mut in_file = File::open(path)?;
+    let cert = serde_cbor::from_reader(in_file)?;
     Ok(cert)
   }
 
@@ -102,7 +111,7 @@ impl<'a> Certificate<'a>
   }
 }
 
-impl<'a> Serialize for Certificate<'a>
+impl Serialize for Certificate
 {
   fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
   where
@@ -126,7 +135,7 @@ impl<'a> Serialize for Certificate<'a>
 struct CertificateVisitor;
 
 impl<'de> de::Visitor<'de> for CertificateVisitor {
-  type Value = Certificate<'de>;
+  type Value = Certificate;
 
   fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
     formatter.write_str("a 7 element array representing a CBOR based certificate")
@@ -146,9 +155,9 @@ impl<'de> de::Visitor<'de> for CertificateVisitor {
     }
 
     let serial_number : u64= seq.next_element()?.unwrap_or(0);
-    let issuer : &str= seq.next_element()?.unwrap_or_else(||"");
+    let issuer : String = seq.next_element()?.unwrap_or_else(||"".to_string());
     let validity : Validity =  seq.next_element()?.unwrap();
-    let subject : &str = seq.next_element()?.unwrap_or_else(||"");
+    let subject : String = seq.next_element()?.unwrap_or_else(||"".to_string());
     let public_key : PublicKey = seq.next_element()?.unwrap();
     let extensions : Vec<Extension> = seq.next_element()?.unwrap();
     let signature : Option<Signature> = seq.next_element()?.unwrap_or_else(||None);
@@ -167,7 +176,7 @@ impl<'de> de::Visitor<'de> for CertificateVisitor {
   }
 }
 
-impl<'de> de::Deserialize<'de> for Certificate<'de> {
+impl<'de> de::Deserialize<'de> for Certificate {
   fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
   where
     D: de::Deserializer<'de>,
@@ -281,7 +290,7 @@ mod tests {
 
   #[test]
   fn certificate_deserialize() {
-    let cert = Certificate::from_vec(EXPECTED_CERT_BYTES).unwrap();
+    let cert = Certificate::from_slice(EXPECTED_CERT_BYTES).unwrap();
     assert_eq!(12, cert.serial_number);
     assert_eq!("connctd", cert.issuer);
     assert_eq!(1_576_108_145, cert.validity.not_after);
@@ -298,12 +307,12 @@ mod tests {
 
     let cert = Certificate{
       serial_number: 12,
-      issuer: "fooissuer",
+      issuer: "fooissuer".to_string(),
       validity: Validity {
         not_after: 13,
         not_before: 2,
       },
-      subject: "barsubject",
+      subject: "barsubject".to_string(),
       public_key: pub_key,
       extensions,
       signature: Some(signature),
@@ -319,10 +328,10 @@ mod tests {
     let keypair: Keypair = Keypair::generate(&mut csprng);
     let extensions: Vec<Extension> = vec![];
 
-    let mut cert = Certificate::new_self_signed(12, "connctd self signed", Validity {
+    let mut cert = Certificate::new_self_signed(12, "connctd self signed".to_string(), Validity {
       not_after: 13,
       not_before: 2,
-    }, "subject self", extensions, &keypair).unwrap();
+    }, "subject self".to_string(), extensions, &keypair).unwrap();
     cert.verify_signature(&keypair.public).unwrap();
   }
 
@@ -363,12 +372,12 @@ mod tests {
 
     let cert = Certificate{
       serial_number: 12,
-      issuer: "connctd",
+      issuer: "connctd".to_string(),
       validity: Validity {
         not_after: 1_576_108_145,
         not_before: 1_576_021_745,
       },
-      subject: "connctd",
+      subject: "connctd".to_string(),
       public_key: pub_key,
       extensions,
       signature: Some(signature),

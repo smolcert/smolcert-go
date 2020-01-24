@@ -1,5 +1,8 @@
 use ed25519_dalek::{SignatureError};
 use serde_cbor::error::Error as SerdeError;
+
+#[cfg(feature="std")]
+use std::io::Error as IoError;
 use std::time::SystemTimeError;
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
@@ -22,9 +25,12 @@ pub struct Error {
 pub enum ErrorCode {
   Serialization(SerdeError),
   Signature(SignatureError),
-  ValidationError(ValidationErrorCode)
+  ValidationError(ValidationErrorCode),
+  #[cfg(feature="std")]
+  IO(IoError),
 }
 
+#[cfg(feature="std")]
 impl From<SystemTimeError> for Error {
   fn from(_err: SystemTimeError) -> Error {
     Error{
@@ -45,6 +51,15 @@ impl From<SignatureError> for Error {
   fn from(err: SignatureError) -> Error {
     Error{
       code: ErrorCode::Signature(err),
+    }
+  }
+}
+
+#[cfg(feature="std")]
+impl From<IoError> for Error {
+  fn from(err: IoError) -> Error {
+    Error{
+      code: ErrorCode::IO(err)
     }
   }
 }

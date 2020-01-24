@@ -135,13 +135,18 @@ fn create_certificate(matches: &ArgMatches) -> Result<()> {
 
     if self_signed {
         let cert = Certificate::new_self_signed(serial_number, 
-            &subject, validity, &subject, vec![Extension::KeyUsage(SIGN_CERTIFICATE)], 
+            subject.to_string(), validity, subject.to_string(), vec![Extension::KeyUsage(SIGN_CERTIFICATE)], 
             &cert_keypair)?;
         write_cert_and_key_to_disk(&cert, &cert_keypair.secret, &out_base_name)?;
     } else {
         return Err(Error::new("unsupported".to_string()));
     }
     Ok(())
+}
+
+fn read_cert(cert_path: &Path) -> Result<Certificate> {
+    let cert = Certificate::from_file(cert_path)?;
+    Ok(cert)
 }
 
 fn write_cert_and_key_to_disk<'a>(

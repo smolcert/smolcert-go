@@ -303,10 +303,45 @@ mod tests {
     }
 
     #[test]
+    fn serialize_and_deserialize() {
+        let mut csprng = OsRng {};
+        let keypair: Keypair = Keypair::generate(&mut csprng);
+        let extensions: Vec<Extension> = vec![Extension::KeyUsage(KeyUsage::SignCertificate)];
+
+        let mut cert = Certificate::new_self_signed(
+            12,
+            "connctd self signed".to_string(),
+            Validity {
+                not_after: 13,
+                not_before: 2,
+            },
+            "subject self".to_string(),
+            extensions,
+            &keypair,
+        )
+        .unwrap();
+        cert.verify_signature(&keypair.public).unwrap();
+
+        let cert_bytes = cert.to_vec().unwrap();
+
+        let cert2 = Certificate::from_slice(&cert_bytes).unwrap();
+
+        assert_eq!(cert.subject, cert2.subject);
+        assert_eq!(cert.serial_number, cert2.serial_number);
+        assert_eq!(cert.issuer, cert2.issuer);
+        assert_eq!(cert.signature, cert2.signature);
+        assert_eq!(cert.public_key, cert2.public_key);
+        assert_eq!(cert.extensions.len(), cert2.extensions.len());
+        assert_eq!(cert.extensions[0].oid(), cert2.extensions[0].oid());
+        assert_eq!(cert.extensions[0].critical(), cert2.extensions[0].critical());
+        assert_eq!(cert.extensions[0].value(), cert2.extensions[0].value());
+    }
+
+    #[test]
     fn certificate_serialize() {
         let pub_key = PublicKey::from_bytes(EXPECTED_CERT_PUB_KEY).unwrap();
         let signature = Signature::from_bytes(EXPECTED_CERT_SIGNATURE).unwrap();
-        let extensions: Vec<Extension> = vec![];
+        let extensions: Vec<Extension> = vec![Extension::KeyUsage(KeyUsage::SignCertificate)];
 
         let cert = Certificate {
             serial_number: 12,
@@ -329,7 +364,7 @@ mod tests {
     fn self_signed() {
         let mut csprng = OsRng {};
         let keypair: Keypair = Keypair::generate(&mut csprng);
-        let extensions: Vec<Extension> = vec![];
+        let extensions: Vec<Extension> = vec![Extension::KeyUsage(KeyUsage::SignCertificate)];
 
         let mut cert = Certificate::new_self_signed(
             12,

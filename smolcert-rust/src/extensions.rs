@@ -3,14 +3,15 @@ use super::*;
 #[cfg(feature = "std")]
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
+use serde::ser::{Serialize, Serializer};
+use serde::de;
 
 pub type OID = u64;
 
 pub const OID_KEYUSAGE: OID = 0x10;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-#[serde(untagged)]
+#[derive(Debug, Clone, Copy)]
+//#[serde(untagged)]
 pub enum KeyUsage {
     ClientIdentification = 0x01,
     ServerIdentification = 0x02,
@@ -27,14 +28,26 @@ impl fmt::Display for KeyUsage {
     }
 }
 
-impl ExtensionValue<'_> for KeyUsage {}
+impl KeyUsage {
+    pub fn from_u8(value: u8) -> Result<Self> {
+        match value {
+            0x01 => Ok(KeyUsage::ClientIdentification),
+            0x02 => Ok(KeyUsage::ServerIdentification),
+            0x03 => Ok(KeyUsage::SignCertificate),
+            _ => Err(Error{
+                code: ErrorCode::ExtensionValueError,
+            })
+        }
+    }
 
-pub trait ExtensionValue<'de>: Serialize + Deserialize<'de> {
-    /* #[cfg(feature = "std")]
-    fn as_bytes(&self) -> Vec<u8>;
-
-    #[cfg(feature = "std")]
-    fn from_bytes(data: &[u8]) -> Result<Self>;*/
+    pub fn from_slice(val: &[u8]) -> Result<Self> {
+        if val.len() != 1 {
+            return Err(Error{
+                code: ErrorCode::ExtensionValueError,
+            });
+        }
+        KeyUsage::from_u8(val[0])
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -110,7 +123,7 @@ impl Serialize for Extension {
         seq.serialize_element(&self.oid())?;
         seq.serialize_element(&self.critical())?;
         // TODO I would like to avoid this copy operation
-        let value_val = serde_cbor::value::Value::Bytes(self.value());
+        let value_val = serde_cbor::Value::Bytes(self.value());
         seq.serialize_element(&value_val)?;
 
         seq.end()
@@ -140,16 +153,21 @@ impl<'de> de::Visitor<'de> for ExtensionVisitor {
         }
         let oid: OID = seq.next_element()?.unwrap_or(0);
         let critical: bool = seq.next_element()?.unwrap_or(true);
-        //let value: Vec<u8> = seq.next_element()?.unwrap_or_else(|| vec![0x0]);
+        let cbor_value: serde_cbor::Value = seq.next_element()?.unwrap_or_else(|| serde_cbor::Value::Bytes(vec![0x0]));
+
+        let value = match cbor_value {
+            serde_cbor::Value::Bytes(v) => v,
+            _ => return Err(de::Error::invalid_value(
+                de::Unexpected::Other("Expected a byte string representing the Extension value"),
+                &self,
+            )),
+        };
 
         let ext = match oid {
             OID_KEYUSAGE => {
-                let val: Option<KeyUsage> = seq.next_element()?;
-                let keyusage_val = val.ok_or(de::Error::invalid_value(
-                    de::Unexpected::Option,
-                    &self,
-                ))?;
-                Extension::KeyUsage(keyusage_val)
+                // FIXME, we need proper error handling here...
+                let key_usage = KeyUsage::from_slice(&value).unwrap();
+                Extension::KeyUsage(key_usage)
             }
             _ => {
                 let value: Vec<u8> = seq.next_element()?.unwrap_or_else(|| vec![0x0]);
@@ -165,7 +183,7 @@ impl<'de> de::Visitor<'de> for ExtensionVisitor {
     }
 }
 
-impl<'de> Deserialize<'de> for Extension {
+impl<'de> de::Deserialize<'de> for Extension {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: de::Deserializer<'de>,

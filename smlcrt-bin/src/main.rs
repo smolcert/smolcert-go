@@ -1,15 +1,15 @@
 #[macro_use]
 extern crate clap;
 
-use clap::{App, SubCommand, Arg, ArgMatches};
+use clap::{App, Arg, ArgMatches, SubCommand};
 
-use std::path::Path;
+use chrono::DateTime;
+use ed25519_dalek::{Keypair, SecretKey};
+use rand::rngs::OsRng;
+use smolcert::{Certificate, Extension, Validity, SIGN_CERTIFICATE};
 use std::fs::File;
 use std::io::prelude::*;
-use rand::rngs::OsRng;
-use ed25519_dalek::{Keypair, SecretKey};
-use chrono::DateTime;
-use smolcert::{Certificate, Validity, Extension, SIGN_CERTIFICATE};
+use std::path::Path;
 
 mod errors;
 
@@ -83,12 +83,21 @@ fn main() {
                     .help("Private key of the issuer")
                     .long("issuer-key")
                     .takes_value(true),
-            ])
+            ]),
             )
+            .subcommand(SubCommand::with_name("print")
+                .about("Prints a certificate")
+                .args(&[
+                    Arg::with_name("certificate")
+                        .help("The certificate to inspect")
+                        .takes_value(true)
+                        .required(true),
+                ]))
         .get_matches();
 
     match matches.subcommand() {
         ("create", Some(sub_m)) => create_certificate(sub_m).unwrap(),
+        ("print", Some(sub_m)) => print_certificate(sub_m).unwrap(),
         _ => println!("Unknown subcommand"),
     }
 }
@@ -113,10 +122,14 @@ fn create_certificate(matches: &ArgMatches) -> Result<()> {
     let client_cert = matches.is_present("client");
     let server_cert = matches.is_present("server");
     let self_signed = matches.is_present("self_signed");
-    let serial_number_str = matches.value_of("serialnumber").ok_or(Error::new("Serialnumber is missing".to_string()))?;
-    let serial_number : u64 = serial_number_str.parse()?;
+    let serial_number_str = matches
+        .value_of("serialnumber")
+        .ok_or(Error::new("Serialnumber is missing".to_string()))?;
+    let serial_number: u64 = serial_number_str.parse()?;
 
-    let out_base_name = matches.value_of("out_name").ok_or(Error::new("Out base path is missing".to_string()))?;
+    let out_base_name = matches
+        .value_of("out_name")
+        .ok_or(Error::new("Out base path is missing".to_string()))?;
 
     let mut validity = Validity::empty();
 
@@ -130,13 +143,18 @@ fn create_certificate(matches: &ArgMatches) -> Result<()> {
         validity.not_after = not_after.timestamp() as u64;
     }
 
-    let mut csprng = OsRng{};
+    let mut csprng = OsRng {};
     let cert_keypair: Keypair = Keypair::generate(&mut csprng);
 
     if self_signed {
-        let cert = Certificate::new_self_signed(serial_number, 
-            subject.to_string(), validity, subject.to_string(), vec![Extension::KeyUsage(SIGN_CERTIFICATE)], 
-            &cert_keypair)?;
+        let cert = Certificate::new_self_signed(
+            serial_number,
+            subject.to_string(),
+            validity,
+            subject.to_string(),
+            vec![Extension::KeyUsage(SIGN_CERTIFICATE)],
+            &cert_keypair,
+        )?;
         write_cert_and_key_to_disk(&cert, &cert_keypair.secret, &out_base_name)?;
     } else {
         return Err(Error::new("unsupported".to_string()));
@@ -149,17 +167,38 @@ fn read_cert(cert_path: &Path) -> Result<Certificate> {
     Ok(cert)
 }
 
+fn print_certificate(matches: &ArgMatches) -> Result<()> {
+    let cert_path = matches.value_of("certificate").ok_or(Error::new(
+        "Path to certificate to print missing".to_string(),
+    ))?;
+
+    let cert = read_cert(Path::new(&cert_path))?;
+
+    println!("Serialnumber: {}", cert.serial_number);
+    println!("Subject:      {}", cert.subject);
+    println!("Issuer:       {}", cert.issuer);
+    if cert.extensions.len() > 0 {
+        println!("Extensions:");
+        for ext in &cert.extensions {
+            println!("Extension");
+        }
+    } else {
+        println!("No extensions are specified");
+    }
+    
+    Ok(())
+}
+
 fn write_cert_and_key_to_disk<'a>(
-    cert: &'a Certificate, 
-    priv_key: &SecretKey, 
-    out_base_name: &str) -> Result<()> 
-{
+    cert: &'a Certificate,
+    priv_key: &SecretKey,
+    out_base_name: &str,
+) -> Result<()> {
     let base_path = Path::new(out_base_name);
 
     let cert_path = base_path.with_extension("smlcrt");
     let key_path = base_path.with_extension("smlkey");
     println!("Writing cert to {:?} and key to {:?}", cert_path, key_path);
-
 
     let mut cert_file = File::create(&cert_path)?;
     let mut key_file = File::create(&key_path)?;

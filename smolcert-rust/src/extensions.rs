@@ -99,7 +99,7 @@ impl Extension {
 impl fmt::Display for Extension {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Extension::KeyUsage(_v) => write!(f, "Key usage (critical extension)"),
+            Extension::KeyUsage(v) => write!(f, "Key usage (critical extension): {}", v),
             Extension::Unknown {
                 oid,
                 critical,

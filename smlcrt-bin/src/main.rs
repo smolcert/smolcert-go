@@ -6,7 +6,7 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 use chrono::DateTime;
 use ed25519_dalek::{Keypair, SecretKey};
 use rand::rngs::OsRng;
-use smolcert::{Certificate, Extension, Validity, SIGN_CERTIFICATE};
+use smolcert::{Certificate, Extension, Validity, KeyUsage};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
@@ -152,7 +152,7 @@ fn create_certificate(matches: &ArgMatches) -> Result<()> {
             subject.to_string(),
             validity,
             subject.to_string(),
-            vec![Extension::KeyUsage(SIGN_CERTIFICATE)],
+            vec![Extension::KeyUsage(KeyUsage::SignCertificate)],
             &cert_keypair,
         )?;
         write_cert_and_key_to_disk(&cert, &cert_keypair.secret, &out_base_name)?;
@@ -174,18 +174,25 @@ fn print_certificate(matches: &ArgMatches) -> Result<()> {
 
     let cert = read_cert(Path::new(&cert_path))?;
 
+    let signature_string = match cert.signature {
+        Some(sig) => format!("{:X?}", sig),
+        None => "(none)".to_string(),
+    };
+
     println!("Serialnumber: {}", cert.serial_number);
     println!("Subject:      {}", cert.subject);
     println!("Issuer:       {}", cert.issuer);
-    if cert.extensions.len() > 0 {
+    println!("Public Key:   {:X?}", cert.public_key);
+    println!("Signature:    {}", signature_string);
+    if !cert.extensions.is_empty() {
         println!("Extensions:");
         for ext in &cert.extensions {
-            println!("Extension");
+            println!("  Extension: {}", ext);
         }
     } else {
         println!("No extensions are specified");
     }
-    
+
     Ok(())
 }
 

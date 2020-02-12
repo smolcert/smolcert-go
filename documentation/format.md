@@ -13,6 +13,14 @@ In all fields which are considered to be strings the following rules apply. All 
 valid UTF-8. Other encodings are not allowed. The UTF-8 encoded strings must apply the (security 
 considerations)[http://unicode.org/reports/tr36/] of the unicode consortium.
 
+## Absent fields
+
+It may happen that a field is absent. For example during creation of the signature, the signature field
+itself needs to be absent. In this case the field is filled with a value of major type 7 and simple value
+22. This value (0xF6), signals a simple `NULL` value in cbor. It is currently only valid to set the fields
+`signature` and `extensions` to this value. Although it for a valid certificate it doesn't make sense
+to set `extensions` to `NULL`, as this certificate then would not have any usage.
+
 ## Fields
 
 ### serial_number

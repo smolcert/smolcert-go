@@ -1,4 +1,4 @@
-module github.com/connctd/smolcert
+module github.com/smolcert/smolcert
 
 go 1.13
 

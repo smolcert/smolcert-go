@@ -1,4 +1,4 @@
-# smolcert  [![CircleCI](https://circleci.com/gh/connctd/smolcert/tree/master.svg?style=svg)](https://circleci.com/gh/connctd/smolcert/tree/master) [![codecov](https://codecov.io/gh/connctd/smolcert/branch/master/graph/badge.svg)](https://codecov.io/gh/connctd/smolcert) [![GoDoc](https://godoc.org/github.com/connctd/smolcert?status.svg)](https://godoc.org/github.com/connctd/smolcert)
+# smolcert  [![CircleCI](https://circleci.com/gh/smolcert/smolcert-go.svg?style=svg)](https://circleci.com/gh/smolcert/smolcert-go) [![codecov](https://codecov.io/gh/connctd/smolcert/branch/master/graph/badge.svg)](https://codecov.io/gh/connctd/smolcert) [![GoDoc](https://godoc.org/github.com/connctd/smolcert?status.svg)](https://godoc.org/github.com/connctd/smolcert)
 
 smolcert is an implementation of [CBOR](https://cbor.io) based certificates inspired by
 [CBOR Profile of X.509 Certificates](https://tools.ietf.org/id/draft-raza-ace-cbor-certificates-00.html).

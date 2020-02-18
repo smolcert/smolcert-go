@@ -120,6 +120,12 @@ func Parse(r io.Reader) (cert *Certificate, err error) {
 	return cert, err
 }
 
+// ParseBuf parses a certificate from an existing byte buffer
+func ParseBuf(buf []byte) (cert *Certificate, err error) {
+	b := bytes.NewBuffer(buf)
+	return Parse(b)
+}
+
 // Serialize serializes a Certificate to an io.Writer
 func Serialize(cert *Certificate, w io.Writer) (err error) {
 	enc := codec.NewEncoder(w, ch)

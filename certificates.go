@@ -13,24 +13,14 @@ import (
 	"io"
 	"time"
 
-	"github.com/ugorji/go/codec"
+	//"github.com/ugorji/go/codec"
+	"github.com/fxamacker/cbor"
 	"golang.org/x/crypto/ed25519"
 )
 
-var (
-	ch = &codec.CborHandle{
-		TimeRFC3339: false,
-	}
-)
-
-func init() {
-	ch.EncodeOptions.Canonical = true
-	ch.TimeNotBuiltin = false
-}
-
 // Certificate represents CBOR based certificates based on the provide spec.cddl
 type Certificate struct {
-	_struct interface{} `codec:"-,toarray"`
+	_ interface{} `codec:"-,toarray"`
 
 	SerialNumber uint64 `codec:"serial_number"`
 	Issuer       string `codec:"issuer"`
@@ -110,27 +100,23 @@ type Validity struct {
 
 // Parse parses a Certificate from an io.Reader
 func Parse(r io.Reader) (cert *Certificate, err error) {
-	dec := codec.NewDecoder(r, ch)
-
-	cert = &Certificate{}
-	if err := dec.Decode(cert); err != nil {
-		return nil, err
-	}
-
-	return cert, err
+	cert = new(Certificate)
+	err = cbor.NewDecoder(r).Decode(cert)
+	return
 }
 
 // ParseBuf parses a certificate from an existing byte buffer
 func ParseBuf(buf []byte) (cert *Certificate, err error) {
-	b := bytes.NewBuffer(buf)
-	return Parse(b)
+	cert = new(Certificate)
+	err = cbor.Unmarshal(buf, cert)
+	return
 }
 
 // Serialize serializes a Certificate to an io.Writer
 func Serialize(cert *Certificate, w io.Writer) (err error) {
-	enc := codec.NewEncoder(w, ch)
-
-	err = enc.Encode(cert)
-	enc.Release()
+	err = cbor.NewEncoder(w, cbor.EncOptions{
+		Canonical:   true,
+		TimeRFC3339: false,
+	}).Encode(cert)
 	return
 }

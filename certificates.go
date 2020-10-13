@@ -14,9 +14,23 @@ import (
 	"time"
 
 	//"github.com/ugorji/go/codec"
-	"github.com/fxamacker/cbor"
+	"github.com/fxamacker/cbor/v2"
 	"golang.org/x/crypto/ed25519"
 )
+
+var (
+	cborEm cbor.EncMode
+)
+
+func init() {
+	var err error
+	encOpts := cbor.CanonicalEncOptions()
+	encOpts.Time = cbor.TimeRFC3339
+	cborEm, err = encOpts.EncMode()
+	if err != nil {
+		panic("Failed to setup CBOR encoder")
+	}
+}
 
 // Certificate represents CBOR based certificates based on the provide spec.cddl
 type Certificate struct {
@@ -114,9 +128,5 @@ func ParseBuf(buf []byte) (cert *Certificate, err error) {
 
 // Serialize serializes a Certificate to an io.Writer
 func Serialize(cert *Certificate, w io.Writer) (err error) {
-	err = cbor.NewEncoder(w, cbor.EncOptions{
-		Canonical:   true,
-		TimeRFC3339: false,
-	}).Encode(cert)
-	return
+	return cborEm.NewEncoder(w).Encode(cert)
 }

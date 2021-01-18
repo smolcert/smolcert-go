@@ -32,7 +32,7 @@ jobs:
           command: sudo apt-get install rubygems
       - run:
           name: Install cddl gem
-          command: gem install cddl -v 0.8.5
+          command: sudo gem install cddl -v 0.8.5
       - run:
           name: "Verify binary format"
           command: make format-test

@@ -12,11 +12,11 @@ const (
 
 // Extension represents a Certificate Extension as specified for X.509 certificates
 type Extension struct {
-	_struct interface{} `codec:"-,toarray"`
+	_ struct{} `cbor:",toarray"`
 
-	OID      uint64 `codec:"oid"`
-	Critical bool   `codec:"critical"`
-	Value    []byte `codec:"value"`
+	OID      uint64 `cbor:"oid"`
+	Critical bool   `cbor:"critical"`
+	Value    []byte `cbor:"value"`
 }
 
 // KeyUsage limits for what the public key in a certificate can be used. Certain KeyUsages may be

@@ -9,10 +9,13 @@ LDFLAGS       	?= -w -s
 
 GO_TEST 				?= $(GO_BUILD_ENV_TEST_VARS) go test -ldflags "$(LDFLAGS)" -race -covermode=atomic -coverprofile=single.coverprofile
 
-.PHONY: test clean
+.PHONY: test clean format-test
 
 clean:
 	rm -f *.coverprofile
 
 test:
 	$(GO_TEST)
+
+format-test:
+	go test -v -tags cddltest -run TestValidGoCertificateFormat

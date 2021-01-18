@@ -13,7 +13,6 @@ import (
 	"io"
 	"time"
 
-	//"github.com/ugorji/go/codec"
 	"github.com/fxamacker/cbor/v2"
 	"golang.org/x/crypto/ed25519"
 )
@@ -34,16 +33,16 @@ func init() {
 
 // Certificate represents CBOR based certificates based on the provide spec.cddl
 type Certificate struct {
-	_ interface{} `codec:"-,toarray"`
+	_ struct{} `cbor:",toarray"`
 
-	SerialNumber uint64 `codec:"serial_number"`
-	Issuer       string `codec:"issuer"`
+	SerialNumber uint64 `cbor:"serial_number"`
+	Issuer       string `cbor:"issuer"`
 	// NotBefore and NotAfter might be 0 to indicate to be ignored during validation
-	Validity   *Validity         `codec:"validity,omitempty"`
-	Subject    string            `codec:"subject"`
-	PubKey     ed25519.PublicKey `codec:"public_key"`
-	Extensions []Extension       `codec:"extensions"`
-	Signature  []byte            `codec:"signature"`
+	Validity   *Validity         `cbor:"validity,omitempty"`
+	Subject    string            `cbor:"subject"`
+	PubKey     ed25519.PublicKey `cbor:"public_key"`
+	Extensions []Extension       `cbor:"extensions"`
+	Signature  []byte            `cbor:"signature"`
 }
 
 // PublicKey returns the public key of this certificate as byte slice.
@@ -106,10 +105,10 @@ func (t Time) IsZero() bool {
 // Validity represents the time constrained validity of a Certificate.
 // NotBefore might be ZeroTime to ignore this constraint, same goes for NotAfter
 type Validity struct {
-	_struct interface{} `codec:"-,toarray"`
+	_ struct{} `cbor:",toarray"`
 
-	NotBefore Time `codec:"notBefore"`
-	NotAfter  Time `codec:"notAfter"`
+	NotBefore Time `cbor:"notBefore"`
+	NotAfter  Time `cbor:"notAfter"`
 }
 
 // Parse parses a Certificate from an io.Reader

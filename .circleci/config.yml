@@ -28,6 +28,9 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Install ruby
+          command: sudo apt-get install rubygems
+      - run:
           name: Install cddl gem
           command: gem install cddl -v 0.8.5
       - run:

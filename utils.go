@@ -80,6 +80,7 @@ func SignedCertificate(subject string, serialNumber uint64, notBefore, notAfter 
 		return nil, ed25519.PrivateKey{}, err
 	}
 	cert := &Certificate{
+		Version:      smolcertVersion,
 		SerialNumber: serialNumber,
 		Issuer:       issuer,
 		Validity:     validity,
@@ -121,6 +122,7 @@ func SelfSignedCertificate(subject string,
 		return nil, ed25519.PrivateKey{}, err
 	}
 	cert := &Certificate{
+		Version:      smolcertVersion,
 		SerialNumber: 1,
 		Issuer:       subject,
 		Validity:     validity,

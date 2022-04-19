@@ -10,6 +10,7 @@ package smolcert
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"time"
 
@@ -20,6 +21,8 @@ import (
 var (
 	cborEm cbor.EncMode
 )
+
+const smolcertVersion = 1
 
 func init() {
 	var err error
@@ -35,6 +38,7 @@ func init() {
 type Certificate struct {
 	_ struct{} `cbor:",toarray"`
 
+	Version      uint64 `cbor:"version"`
 	SerialNumber uint64 `cbor:"serial_number"`
 	Issuer       string `cbor:"issuer"`
 	// NotBefore and NotAfter might be 0 to indicate to be ignored during validation
@@ -57,6 +61,7 @@ func (c *Certificate) Copy() *Certificate {
 	// Convert the public key to a byte slice and create a copy of this slice
 	p2 := append([]byte{}, []byte(c.PubKey)...)
 	c2 := &Certificate{
+		Version:      c.Version,
 		SerialNumber: c.SerialNumber,
 		Issuer:       c.Issuer,
 		Validity: &Validity{
@@ -115,17 +120,28 @@ type Validity struct {
 func Parse(r io.Reader) (cert *Certificate, err error) {
 	cert = new(Certificate)
 	err = cbor.NewDecoder(r).Decode(cert)
-	return
+	if err == nil {
+		if cert.Version != smolcertVersion {
+			return nil, errors.New("Unsupported smolcert version")
+		}
+	}
+	return cert, err
 }
 
 // ParseBuf parses a certificate from an existing byte buffer
 func ParseBuf(buf []byte) (cert *Certificate, err error) {
 	cert = new(Certificate)
 	err = cbor.Unmarshal(buf, cert)
-	return
+	if err == nil {
+		if cert.Version != smolcertVersion {
+			return nil, errors.New("Unsupported smolcert version")
+		}
+	}
+	return cert, err
 }
 
 // Serialize serializes a Certificate to an io.Writer
 func Serialize(cert *Certificate, w io.Writer) (err error) {
+	cert.Version = smolcertVersion
 	return cborEm.NewEncoder(w).Encode(cert)
 }

@@ -1,3 +1,4 @@
+//go:build cddltest
 // +build cddltest
 
 package smolcert
@@ -20,6 +21,7 @@ func TestValidGoCertificateFormat(t *testing.T) {
 
 	pubKey := ed25519.PublicKey([]byte{0x00, 0x42, 0x23, 0x05})
 	cert := &Certificate{
+		Version:      smolcertVersion,
 		Issuer:       "connctd",
 		PubKey:       pubKey,
 		SerialNumber: 12,

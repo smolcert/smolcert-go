@@ -3,6 +3,7 @@
 ; Signature is based on ed25519
 
 certificate = [
+  version: uint,
   serial_number : uint,
   issuer : tstr,
   validity : [notBefore: int, notAfter: int],

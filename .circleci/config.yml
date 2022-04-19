@@ -24,7 +24,7 @@ jobs:
             file: ./single.coverprofile
   format-test:
     docker:
-      - image: cimg/go:latest
+      - image: golang:stretch
     steps:
       - checkout
       - run:
